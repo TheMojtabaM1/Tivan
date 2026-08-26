@@ -6,11 +6,16 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 
-@Database(entities = [Device::class, MessageLog::class], version = 1, exportSchema = false)
+@Database(
+    entities = [Device::class, MessageLog::class, DeviceStatus::class],
+    version = 2,
+    exportSchema = true
+)
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun deviceDao(): DeviceDao
     abstract fun messageLogDao(): MessageLogDao
+    abstract fun deviceStatusDao(): DeviceStatusDao
 
     companion object {
         @Volatile private var INSTANCE: AppDatabase? = null
@@ -21,7 +26,14 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "tivan.db"
-                ).build().also { INSTANCE = it }
+                )
+                    // Upgrades keep the user's devices, custom names and message
+                    // history. No destructive fallback: a missing migration should
+                    // surface as a crash in testing, never as silent data loss on
+                    // someone's phone.
+                    .addMigrations(*Migrations.ALL)
+                    .build()
+                    .also { INSTANCE = it }
             }
     }
 }

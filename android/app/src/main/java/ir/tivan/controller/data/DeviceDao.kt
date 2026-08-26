@@ -25,10 +25,28 @@ interface DeviceDao {
 }
 
 @Dao
+interface DeviceStatusDao {
+    @Query("SELECT * FROM device_status WHERE deviceId = :deviceId")
+    fun observe(deviceId: Long): Flow<DeviceStatus?>
+
+    @Query("SELECT * FROM device_status WHERE deviceId = :deviceId")
+    suspend fun get(deviceId: Long): DeviceStatus?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(status: DeviceStatus)
+
+    @Query("DELETE FROM device_status WHERE deviceId = :deviceId")
+    suspend fun deleteFor(deviceId: Long)
+}
+
+@Dao
 interface MessageLogDao {
     @Query("SELECT * FROM message_logs WHERE deviceId = :deviceId ORDER BY timestamp DESC LIMIT 100")
     fun observeForDevice(deviceId: Long): Flow<List<MessageLog>>
 
     @Insert
     suspend fun insert(log: MessageLog)
+
+    @Query("DELETE FROM message_logs WHERE deviceId = :deviceId")
+    suspend fun clearFor(deviceId: Long)
 }

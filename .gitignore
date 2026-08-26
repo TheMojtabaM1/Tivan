@@ -10,3 +10,8 @@ android/captures/
 *.pdf
 
 # keep everything else in the repo untouched
+
+# release signing — never commit keys
+android/keystore.properties
+*.jks
+*.keystore
