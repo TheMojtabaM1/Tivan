@@ -6,12 +6,28 @@ on:
     paths:
       - "android/**"
       - ".github/workflows/android-build.yml"
-    tags:
-      - "v*"
   pull_request:
     paths:
       - "android/**"
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "نسخه برای انتشار، مثلاً 1.1 — خالی بگذارید تا فقط بیلد شود بدون ساخت ریلیز"
+        required: false
+        type: string
+      version_code:
+        description: "شماره بیلد (عدد). خالی بگذارید تا خودکار انتخاب شود"
+        required: false
+        type: string
+      prerelease:
+        description: "به‌عنوان پیش‌نمایش منتشر شود"
+        required: false
+        type: boolean
+        default: false
+
+# Needed to push the tag and publish the release.
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -26,6 +42,42 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      # Accepts "1.2" or "v1.2" and normalises both, so a typo in the form
+      # fails here with a clear message instead of producing an odd tag.
+      - name: Resolve version
+        id: ver
+        env:
+          IN_VERSION: ${{ inputs.version }}
+          IN_CODE: ${{ inputs.version_code }}
+        run: |
+          set -euo pipefail
+          raw="${IN_VERSION:-}"
+          raw="${raw#v}"
+          if [ -n "$raw" ]; then
+            if ! printf '%s' "$raw" | grep -Eq '^[0-9]+(\.[0-9]+){0,2}$'; then
+              echo "::error::نسخه نامعتبر است: '$raw'. نمونه درست: 1، 1.1 یا 1.1.0"
+              exit 1
+            fi
+            echo "release=true" >> "$GITHUB_OUTPUT"
+            echo "name=$raw" >> "$GITHUB_OUTPUT"
+            echo "tag=v$raw" >> "$GITHUB_OUTPUT"
+          else
+            echo "release=false" >> "$GITHUB_OUTPUT"
+            echo "name=0.0-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+            echo "tag=" >> "$GITHUB_OUTPUT"
+          fi
+          # run_number always increases, which is what Android requires of
+          # versionCode; an explicit value still wins.
+          echo "code=${IN_CODE:-$GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+
+      - name: Fail if the tag already exists
+        if: steps.ver.outputs.release == 'true'
+        run: |
+          if git ls-remote --exit-code --tags origin "refs/tags/${{ steps.ver.outputs.tag }}" >/dev/null 2>&1; then
+            echo "::error::تگ ${{ steps.ver.outputs.tag }} از قبل وجود دارد. شماره نسخه دیگری بزنید."
+            exit 1
+          fi
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -42,7 +94,8 @@ jobs:
           gradle-version: "8.7"
 
       # A release key makes the APK install without the harsher Play Protect
-      # warning. Without the secrets the build still runs, just debug-signed.
+      # warning, and keeps the signature stable so updates preserve app data.
+      # Without the secrets the build still runs, just debug-signed.
       - name: Decode release keystore
         id: keystore
         if: env.KEYSTORE_BASE64 != ''
@@ -50,18 +103,30 @@ jobs:
           echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/tivan-release.jks"
           echo "path=$RUNNER_TEMP/tivan-release.jks" >> "$GITHUB_OUTPUT"
 
+      - name: Warn when signing with the debug key
+        if: steps.ver.outputs.release == 'true' && env.KEYSTORE_BASE64 == ''
+        run: |
+          echo "::warning::این ریلیز با کلید debug امضا می‌شود. برای اینکه آپدیت‌ها اطلاعات کاربر را پاک نکنند، secret های KEYSTORE_BASE64 و KEYSTORE_PASSWORD و KEY_ALIAS و KEY_PASSWORD را اضافه کنید."
+
+      - name: Run unit tests
+        run: gradle testReleaseUnitTest --stacktrace
+
       - name: Build release APK
         env:
           KEYSTORE_FILE: ${{ steps.keystore.outputs.path }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: gradle assembleRelease --stacktrace
+        run: |
+          gradle assembleRelease --stacktrace \
+            -PversionName='${{ steps.ver.outputs.name }}' \
+            -PversionCode='${{ steps.ver.outputs.code }}'
 
-      - name: Rename APK
+      - name: Collect APK
         run: |
           mkdir -p out
-          cp app/build/outputs/apk/release/*.apk "out/TIVAN-Controller-${GITHUB_REF_NAME//\//-}.apk"
+          cp app/build/outputs/apk/release/*.apk \
+            "out/TIVAN-Controller-${{ steps.ver.outputs.name }}.apk"
           ls -la out
 
       - name: Upload APK artifact
@@ -70,9 +135,14 @@ jobs:
           name: tivan-controller-apk
           path: android/out/*.apk
 
-      - name: Create release on tag
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Publish release
+        if: steps.ver.outputs.release == 'true'
         uses: softprops/action-gh-release@v2
         with:
-          files: android/out/*.apk
+          # The tag is created from this commit if it does not exist yet.
+          tag_name: ${{ steps.ver.outputs.tag }}
+          name: TIVAN Controller ${{ steps.ver.outputs.name }}
+          target_commitish: ${{ github.sha }}
+          prerelease: ${{ inputs.prerelease }}
           generate_release_notes: true
+          files: android/out/*.apk

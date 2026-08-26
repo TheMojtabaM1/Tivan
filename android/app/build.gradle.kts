@@ -26,6 +26,13 @@ fun secret(key: String, envName: String): String? =
 val storeFilePath = secret("storeFile", "KEYSTORE_FILE")
 val hasReleaseKey = storeFilePath != null && file(storeFilePath).exists()
 
+// Overridable from CI so a release can be cut from the Actions page without
+// editing this file: -PversionName=1.1 -PversionCode=7
+val appVersionName = (project.findProperty("versionName") as String?)
+    ?.takeIf { it.isNotBlank() } ?: "1.0"
+val appVersionCode = (project.findProperty("versionCode") as String?)
+    ?.trim()?.toIntOrNull() ?: 1
+
 android {
     namespace = "ir.tivan.controller"
     compileSdk = 34
@@ -34,8 +41,8 @@ android {
         applicationId = "ir.tivan.controller"
         minSdk = 24
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = appVersionCode
+        versionName = appVersionName
         resourceConfigurations += listOf("fa", "en")
 
         ksp { arg("room.schemaLocation", "$projectDir/schemas") }
