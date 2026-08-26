@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.Power
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import ir.tivan.controller.ui.MainViewModel
