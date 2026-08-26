@@ -17,8 +17,11 @@ val keystoreProps = Properties().apply {
     if (keystorePropsFile.exists()) keystorePropsFile.inputStream().use { load(it) }
 }
 
+// A skipped CI step still exports its output as an empty string rather than
+// leaving the variable unset, so blank has to count as absent here — `file("")`
+// throws rather than returning something non-existent.
 fun secret(key: String, envName: String): String? =
-    keystoreProps.getProperty(key) ?: System.getenv(envName)
+    (keystoreProps.getProperty(key) ?: System.getenv(envName))?.takeIf { it.isNotBlank() }
 
 val storeFilePath = secret("storeFile", "KEYSTORE_FILE")
 val hasReleaseKey = storeFilePath != null && file(storeFilePath).exists()
