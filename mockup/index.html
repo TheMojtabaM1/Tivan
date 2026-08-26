@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<title>TIVAN Controller - UI Mockup</title>
+<style>
+  :root{
+    --bg:#0f1115; --card:#1a1d24; --card2:#20242c; --accent:#3b82f6; --accent2:#22c55e;
+    --danger:#ef4444; --warn:#f59e0b; --text:#e8eaf0; --sub:#9aa3b2; --border:#2a2f3a;
+    --radius:18px;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:linear-gradient(180deg,#0b0d11,#05060a); font-family:'Vazirmatn',Tahoma,Segoe UI,sans-serif;
+    display:flex; justify-content:center; align-items:flex-start; min-height:100vh; padding:30px 10px;
+  }
+  .phone{
+    width:390px; height:820px; background:var(--bg); border-radius:44px; border:10px solid #000;
+    box-shadow:0 30px 80px rgba(0,0,0,.6); overflow:hidden; position:relative; display:flex; flex-direction:column;
+  }
+  .notch{position:absolute; top:0; left:50%; transform:translateX(-50%); width:150px; height:26px; background:#000; border-radius:0 0 18px 18px; z-index:10}
+  .statusbar{height:38px; display:flex; align-items:center; justify-content:space-between; padding:0 22px; color:var(--text); font-size:13px; opacity:.85}
+  .topbar{
+    padding:6px 16px 14px; display:flex; align-items:center; justify-content:space-between; gap:10px;
+  }
+  .device-switcher{
+    flex:1; background:var(--card); border:1px solid var(--border); border-radius:14px; padding:10px 14px;
+    display:flex; align-items:center; justify-content:space-between; cursor:pointer;
+  }
+  .device-switcher .dinfo{display:flex; flex-direction:column; gap:2px}
+  .device-switcher .dname{font-size:14px; font-weight:700; color:var(--text)}
+  .device-switcher .dnum{font-size:11px; color:var(--sub); direction:ltr; text-align:right}
+  .signal{display:flex; align-items:center; gap:6px; font-size:11px; color:var(--accent2)}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--accent2); box-shadow:0 0 8px var(--accent2)}
+  .chev{color:var(--sub); font-size:18px; margin-right:2px}
+
+  .content{flex:1; overflow-y:auto; padding:4px 16px 90px}
+  .content::-webkit-scrollbar{display:none}
+
+  h2.section-title{font-size:13px; color:var(--sub); margin:18px 4px 10px; font-weight:600}
+
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:12px}
+  .out-card{
+    background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:16px;
+    position:relative; overflow:hidden; transition:.2s;
+  }
+  .out-card.on{border-color:var(--accent2); box-shadow:0 0 0 1px var(--accent2) inset, 0 8px 24px -8px rgba(34,197,94,.4)}
+  .out-card .oc-top{display:flex; justify-content:space-between; align-items:flex-start}
+  .out-name{font-size:15px; font-weight:700; color:var(--text)}
+  .out-sub{font-size:11px; color:var(--sub); margin-top:2px}
+  .badge{font-size:10px; padding:3px 8px; border-radius:20px; background:#2a2f3a; color:var(--sub); font-weight:600}
+  .badge.on{background:rgba(34,197,94,.15); color:var(--accent2)}
+  .toggle{
+    width:50px; height:28px; border-radius:20px; background:#2a2f3a; position:relative; cursor:pointer; margin-top:14px;
+    transition:.25s;
+  }
+  .toggle.on{background:var(--accent2)}
+  .toggle .knob{position:absolute; top:3px; right:3px; width:22px; height:22px; border-radius:50%; background:#fff; transition:.25s}
+  .toggle.on .knob{transform:translateX(-22px)}
+  .out-actions{display:flex; gap:6px; margin-top:12px}
+  .mini-btn{flex:1; background:var(--card2); border:1px solid var(--border); color:var(--sub); border-radius:10px; padding:6px 0; font-size:10.5px; text-align:center}
+
+  .sec-card{
+    background:linear-gradient(135deg,#1a1d24,#161922); border:1px solid var(--border); border-radius:var(--radius);
+    padding:20px; text-align:center; margin-top:4px;
+  }
+  .sec-icon{width:74px; height:74px; border-radius:50%; background:rgba(239,68,68,.12); border:2px solid var(--danger);
+    display:flex; align-items:center; justify-content:center; margin:0 auto 14px; font-size:30px; color:var(--danger); transition:.3s}
+  .sec-icon.armed{background:rgba(34,197,94,.12); border-color:var(--accent2); color:var(--accent2)}
+  .sec-status{font-size:16px; font-weight:800; color:var(--text)}
+  .sec-sub{font-size:12px; color:var(--sub); margin-top:4px}
+  .sec-btn{
+    margin-top:16px; width:100%; padding:14px; border-radius:14px; border:none; font-size:14px; font-weight:700;
+    background:var(--danger); color:#fff;
+  }
+  .sec-btn.armed{background:var(--accent2); color:#062}
+  .zone-row{display:flex; gap:10px; margin-top:16px}
+  .zone-chip{flex:1; padding:10px; border-radius:12px; background:var(--card2); border:1px solid var(--border); font-size:12px; color:var(--sub); text-align:center}
+  .zone-chip.active{border-color:var(--accent); color:var(--accent)}
+
+  .status-grid{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:4px}
+  .stat-card{background:var(--card); border:1px solid var(--border); border-radius:14px; padding:14px}
+  .stat-label{font-size:11px; color:var(--sub)}
+  .stat-value{font-size:20px; font-weight:800; margin-top:6px; color:var(--text)}
+  .stat-value.good{color:var(--accent2)}
+  .io-strip{display:flex; gap:8px; margin-top:14px}
+  .io-dot{flex:1; text-align:center; background:var(--card2); border-radius:10px; padding:10px 4px; border:1px solid var(--border)}
+  .io-dot .lbl{font-size:10px; color:var(--sub)}
+  .io-dot .val{width:14px;height:14px;border-radius:50%;background:#3a4050; margin:6px auto 0}
+  .io-dot .val.on{background:var(--accent2); box-shadow:0 0 10px var(--accent2)}
+
+  .log-item{display:flex; justify-content:space-between; align-items:center; padding:12px 4px; border-bottom:1px solid var(--border)}
+  .log-left{display:flex; align-items:center; gap:10px}
+  .log-ico{width:36px;height:36px;border-radius:10px; background:var(--card2); display:flex;align-items:center;justify-content:center; font-size:16px}
+  .log-title{font-size:13px; color:var(--text); font-weight:600}
+  .log-time{font-size:11px; color:var(--sub); margin-top:2px}
+
+  .settings-list{background:var(--card); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; margin-top:4px}
+  .settings-row{display:flex; align-items:center; justify-content:space-between; padding:15px 16px; border-bottom:1px solid var(--border); cursor:pointer}
+  .settings-row:last-child{border-bottom:none}
+  .settings-row .left{display:flex; align-items:center; gap:12px}
+  .settings-ico{width:34px;height:34px;border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:15px}
+  .row-title{font-size:13.5px; color:var(--text); font-weight:600}
+  .row-sub{font-size:11px; color:var(--sub); margin-top:2px}
+
+  .bottom-nav{
+    position:absolute; bottom:0; left:0; right:0; height:78px; background:rgba(20,22,28,.92); backdrop-filter:blur(10px);
+    border-top:1px solid var(--border); display:flex; padding-bottom:16px;
+  }
+  .nav-item{flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; color:var(--sub); font-size:10px; cursor:pointer}
+  .nav-item .ic{font-size:19px}
+  .nav-item.active{color:var(--accent)}
+
+  .fab-sos{
+    position:absolute; left:16px; bottom:96px; background:var(--danger); color:#fff; border-radius:50%; width:54px; height:54px;
+    display:flex; align-items:center; justify-content:center; font-size:20px; box-shadow:0 10px 24px -6px rgba(239,68,68,.6); z-index:5;
+  }
+
+  .device-sheet{
+    position:absolute; inset:0; background:rgba(0,0,0,.55); display:none; align-items:flex-end; z-index:20;
+  }
+  .device-sheet.open{display:flex}
+  .sheet-inner{
+    background:var(--bg); width:100%; border-radius:24px 24px 0 0; padding:18px 16px 24px; border:1px solid var(--border); border-bottom:none;
+    max-height:70%; overflow-y:auto;
+  }
+  .sheet-handle{width:40px; height:4px; background:#3a4050; border-radius:4px; margin:0 auto 14px}
+  .dev-item{display:flex; justify-content:space-between; align-items:center; padding:14px; border-radius:14px; margin-bottom:8px; background:var(--card2); border:1px solid var(--border)}
+  .dev-item.sel{border-color:var(--accent)}
+  .dev-add{display:flex; align-items:center; justify-content:center; gap:8px; padding:14px; border-radius:14px; border:1px dashed var(--border); color:var(--accent); font-size:13px; margin-top:6px}
+
+  .screen{display:none}
+  .screen.active{display:block}
+  .page-title{font-size:22px; font-weight:800; color:var(--text); margin:8px 4px 2px}
+  .page-sub{font-size:12.5px; color:var(--sub); margin:0 4px 10px}
+  .hint{font-size:11px; color:#5a6270; text-align:center; margin-top:14px}
+</style>
+</head>
+<body>
+<div class="phone">
+  <div class="notch"></div>
+  <div class="statusbar"><span>9:41</span><span>TIVAN Controller</span><span>🔋 📶</span></div>
+
+  <div class="topbar">
+    <div class="device-switcher" onclick="document.getElementById('sheet').classList.add('open')">
+      <div class="dinfo">
+        <div class="dname">🏠 خانه - درب حیاط</div>
+        <div class="dnum">+98 912 345 6789</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div class="signal"><span class="dot"></span>عالی</div>
+        <span class="chev">‹</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- OUTPUTS -->
+    <div class="screen active" id="scr-outputs">
+      <div class="page-title">خروجی‌ها</div>
+      <div class="page-sub">روشن، خاموش یا زمان‌دار کنید</div>
+      <div class="grid2">
+        <div class="out-card on">
+          <div class="oc-top"><div><div class="out-name">پمپ آب</div><div class="out-sub">خروجی ۱</div></div><span class="badge on">روشن</span></div>
+          <div class="toggle on"><div class="knob"></div></div>
+          <div class="out-actions"><div class="mini-btn">⏱ تایمر</div><div class="mini-btn">✎ نام</div></div>
+        </div>
+        <div class="out-card">
+          <div class="oc-top"><div><div class="out-name">چراغ حیاط</div><div class="out-sub">خروجی ۲</div></div><span class="badge">خاموش</span></div>
+          <div class="toggle"><div class="knob"></div></div>
+          <div class="out-actions"><div class="mini-btn">⏱ تایمر</div><div class="mini-btn">✎ نام</div></div>
+        </div>
+        <div class="out-card">
+          <div class="oc-top"><div><div class="out-name">درب پارکینگ</div><div class="out-sub">خروجی ۳</div></div><span class="badge">خاموش</span></div>
+          <div class="toggle"><div class="knob"></div></div>
+          <div class="out-actions"><div class="mini-btn">⏱ تایمر</div><div class="mini-btn">✎ نام</div></div>
+        </div>
+        <div class="out-card on">
+          <div class="oc-top"><div><div class="out-name">بخاری</div><div class="out-sub">خروجی ۴ · ترموستات</div></div><span class="badge on">روشن</span></div>
+          <div class="toggle on"><div class="knob"></div></div>
+          <div class="out-actions"><div class="mini-btn">🌡 دما</div><div class="mini-btn">✎ نام</div></div>
+        </div>
+      </div>
+      <h2 class="section-title">همه خروجی‌ها</h2>
+      <div class="out-actions" style="gap:10px">
+        <div class="mini-btn" style="padding:12px 0; color:var(--accent2)">روشن کردن همه</div>
+        <div class="mini-btn" style="padding:12px 0; color:var(--danger)">خاموش کردن همه</div>
+      </div>
+      <div class="hint">دستور از طریق پیامک به دستگاه ارسال می‌شود</div>
+    </div>
+
+    <!-- SECURITY -->
+    <div class="screen" id="scr-security">
+      <div class="page-title">حالت دزدگیر</div>
+      <div class="page-sub">مدیریت زون‌ها و وضعیت آلارم</div>
+      <div class="sec-card">
+        <div class="sec-icon armed">🛡</div>
+        <div class="sec-status">فعال - دو زون</div>
+        <div class="sec-sub">آخرین تغییر: امروز ۱۴:۲۲</div>
+        <button class="sec-btn armed">غیرفعال کردن دزدگیر</button>
+        <div class="zone-row">
+          <div class="zone-chip active">زون ۱ (IN1)</div>
+          <div class="zone-chip active">زون ۲ (IN2)</div>
+        </div>
+      </div>
+      <h2 class="section-title">رویدادهای اخیر</h2>
+      <div class="log-item"><div class="log-left"><div class="log-ico">🚨</div><div><div class="log-title">تحریک ورودی ۱ - آلارم</div><div class="log-time">امروز ۰۳:۱۴</div></div></div><span class="badge" style="color:var(--danger)">هشدار</span></div>
+      <div class="log-item"><div class="log-left"><div class="log-ico">🛡</div><div><div class="log-title">دزدگیر فعال شد</div><div class="log-time">دیروز ۲۳:۰۰</div></div></div></div>
+      <div class="log-item"><div class="log-left"><div class="log-ico">🔓</div><div><div class="log-title">دزدگیر غیرفعال شد</div><div class="log-time">دیروز ۰۸:۱۰</div></div></div></div>
+    </div>
+
+    <!-- STATUS -->
+    <div class="screen" id="scr-status">
+      <div class="page-title">وضعیت و گزارش</div>
+      <div class="page-sub">آخرین گزارش‌گیری از دستگاه</div>
+      <div class="status-grid">
+        <div class="stat-card"><div class="stat-label">آنتن‌دهی</div><div class="stat-value good">عالی</div></div>
+        <div class="stat-card"><div class="stat-label">شارژ سیم‌کارت</div><div class="stat-value">۴۵,۲۰۰ ﷼</div></div>
+        <div class="stat-card"><div class="stat-label">دمای محیط</div><div class="stat-value">۲۴.۵°C</div></div>
+        <div class="stat-card"><div class="stat-label">آخرین ارتباط</div><div class="stat-value" style="font-size:14px">۲ دقیقه پیش</div></div>
+      </div>
+      <h2 class="section-title">وضعیت ورودی/خروجی لحظه‌ای</h2>
+      <div class="io-strip">
+        <div class="io-dot"><div class="lbl">IN1</div><div class="val on"></div></div>
+        <div class="io-dot"><div class="lbl">IN2</div><div class="val"></div></div>
+        <div class="io-dot"><div class="lbl">IN3</div><div class="val"></div></div>
+        <div class="io-dot"><div class="lbl">IN4</div><div class="val"></div></div>
+        <div class="io-dot"><div class="lbl">OUT1</div><div class="val on"></div></div>
+        <div class="io-dot"><div class="lbl">OUT2</div><div class="val"></div></div>
+        <div class="io-dot"><div class="lbl">OUT3</div><div class="val"></div></div>
+        <div class="io-dot"><div class="lbl">OUT4</div><div class="val on"></div></div>
+      </div>
+      <div class="out-actions" style="margin-top:16px">
+        <div class="mini-btn" style="padding:12px 0">🔄 بروزرسانی گزارش</div>
+        <div class="mini-btn" style="padding:12px 0">📶 تست آنتن</div>
+      </div>
+      <h2 class="section-title">تاریخچه پیامک‌ها</h2>
+      <div class="log-item"><div class="log-left"><div class="log-ico">📩</div><div><div class="log-title">OUT1 ON, OUT4 ON, IN1 1</div><div class="log-time">دریافتی · ۱۴:۲۲</div></div></div></div>
+      <div class="log-item"><div class="log-left"><div class="log-ico">📤</div><div><div class="log-title">REPORT</div><div class="log-time">ارسالی · ۱۴:۲۲</div></div></div></div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div class="screen" id="scr-settings">
+      <div class="page-title">تنظیمات پیشرفته</div>
+      <div class="page-sub">مدیریت کامل دستگاه TIVAN S44T</div>
+      <div class="settings-list">
+        <div class="settings-row"><div class="left"><div class="settings-ico" style="background:#3b82f622;color:#3b82f6">👤</div><div><div class="row-title">مدیران فرعی و کاربران</div><div class="row-sub">۲ مدیر فرعی، ۵ کاربر عادی</div></div></div><span class="chev">‹</span></div>
+        <div class="settings-row"><div class="left"><div class="settings-ico" style="background:#f59e0b22;color:#f59e0b">🌡</div><div><div class="row-title">سنسور دما و ترموستات A/B</div><div class="row-sub">فعال · گرمایش</div></div></div><span class="chev">‹</span></div>
+        <div class="settings-row"><div class="left"><div class="settings-ico" style="background:#22c55e22;color:#22c55e">📡</div><div><div class="row-title">ریموت کنترل</div><div class="row-sub">۳ ریموت آموزش‌دیده</div></div></div><span class="chev">‹</span></div>
+        <div class="settings-row"><div class="left"><div class="settings-ico" style="background:#ef444422;color:#ef4444">🔌</div><div><div class="row-title">ورودی‌ها و مدهای تحریک</div><div class="row-sub">N.O / N.C / OFF</div></div></div><span class="chev">‹</span></div>
+        <div class="settings-row"><div class="left"><div class="settings-ico" style="background:#a855f722;color:#a855f7">✎</div><div><div class="row-title">نام‌گذاری خروجی‌ها و پیام‌ها</div><div class="row-sub">سفارشی‌سازی گزارش‌ها</div></div></div><span class="chev">‹</span></div>
+        <div class="settings-row"><div class="left"><div class="settings-ico" style="background:#06b6d422;color:#06b6d4">⚙️</div><div><div class="row-title">تنظیمات عمومی</div><div class="row-sub">بیزر، حافظه، گزارش خودکار</div></div></div><span class="chev">‹</span></div>
+        <div class="settings-row"><div class="left"><div class="settings-ico" style="background:#64748b22;color:#94a3b8">📟</div><div><div class="row-title">ارسال دستور دستی</div><div class="row-sub">هر دستور خام پیامکی</div></div></div><span class="chev">‹</span></div>
+        <div class="settings-row"><div class="left"><div class="settings-ico" style="background:#ef444422;color:#ef4444">♻️</div><div><div class="row-title">بازیابی تنظیمات کارخانه</div><div class="row-sub">نیازمند تایید دو مرحله‌ای</div></div></div><span class="chev">‹</span></div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="fab-sos">🆘</div>
+
+  <div class="bottom-nav">
+    <div class="nav-item active" onclick="go('outputs',this)"><div class="ic">🔌</div>خروجی‌ها</div>
+    <div class="nav-item" onclick="go('security',this)"><div class="ic">🛡</div>دزدگیر</div>
+    <div class="nav-item" onclick="go('status',this)"><div class="ic">📊</div>وضعیت</div>
+    <div class="nav-item" onclick="go('settings',this)"><div class="ic">⚙️</div>تنظیمات</div>
+  </div>
+
+  <div class="device-sheet" id="sheet" onclick="if(event.target===this)this.classList.remove('open')">
+    <div class="sheet-inner">
+      <div class="sheet-handle"></div>
+      <h2 class="section-title" style="margin-top:0">انتخاب دستگاه</h2>
+      <div class="dev-item sel"><div class="dinfo"><div class="dname">🏠 خانه - درب حیاط</div><div class="dnum">+98 912 345 6789</div></div><span style="color:var(--accent)">✓</span></div>
+      <div class="dev-item"><div class="dinfo"><div class="dname">🏢 مغازه</div><div class="dnum">+98 935 111 2233</div></div></div>
+      <div class="dev-item"><div class="dinfo"><div class="dname">🌾 باغ</div><div class="dnum">+98 990 444 5566</div></div></div>
+      <div class="dev-add">＋ افزودن دستگاه جدید</div>
+    </div>
+  </div>
+
+</div>
+<script>
+function go(name, el){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('scr-'+name).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  el.classList.add('active');
+}
+document.querySelectorAll('.toggle').forEach(t=>t.addEventListener('click',()=>t.classList.toggle('on')));
+</script>
+</body>
+</html>
