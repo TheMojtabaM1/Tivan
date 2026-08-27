@@ -1,5 +1,6 @@
 package ir.tivan.controller.data
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
@@ -21,9 +22,22 @@ data class DeviceStatus(
     val outputStates: String = "????",
     val outputsAt: Long = 0,
 
-    /** "1" = triggered/closed, "0" = idle, "?" = unknown. */
+    /**
+     * Live input state as reported by REPORT: "1" = closed, "0" = open,
+     * "?" = unknown. Only REPORT writes here — a trigger notification is an
+     * event, not a state, and belongs in [inputTriggeredAt].
+     */
     val inputStates: String = "????",
     val inputsAt: Long = 0,
+
+    /**
+     * When each input last fired, one epoch-millis value per input (0 = never).
+     * Kept separate from [inputStates] and per-input rather than shared, so one
+     * input tripping cannot make the other three look like they just fired —
+     * and so a past trigger cannot pin an input to "triggered" forever.
+     */
+    @ColumnInfo(defaultValue = "0,0,0,0")
+    val inputTriggeredAt: List<Long> = listOf(0, 0, 0, 0),
 
     val securityArmed: Boolean? = null,
     val securityAt: Long = 0,
@@ -53,13 +67,38 @@ data class DeviceStatus(
     fun withOutput(index: Int, on: Boolean, at: Long): DeviceStatus =
         copy(outputStates = outputStates.replaceAt(index, if (on) '1' else '0'), outputsAt = at)
 
-    fun withInput(index: Int, triggered: Boolean, at: Long): DeviceStatus =
-        copy(inputStates = inputStates.replaceAt(index, if (triggered) '1' else '0'), inputsAt = at)
+    /** Live state from a REPORT reply. */
+    fun withInput(index: Int, closed: Boolean, at: Long): DeviceStatus =
+        copy(inputStates = inputStates.replaceAt(index, if (closed) '1' else '0'), inputsAt = at)
+
+    /** Records a trigger event without touching the live state. */
+    fun withInputTriggered(index: Int, at: Long): DeviceStatus {
+        if (index !in 0..3) return this
+        val times = inputTriggeredAt.padTo4()
+        return copy(inputTriggeredAt = times.toMutableList().also { it[index] = at })
+    }
+
+    fun triggeredAt(index: Int): Long = inputTriggeredAt.padTo4().getOrElse(index) { 0L }
+
+    /**
+     * True only while a trigger is fresh. Without a window the badge would stay
+     * lit forever, since the controller never reports "this input went idle".
+     */
+    fun recentlyTriggered(index: Int, now: Long = System.currentTimeMillis()): Boolean {
+        val at = triggeredAt(index)
+        return at > 0L && now - at < TRIGGER_HIGHLIGHT_MS
+    }
 
     companion object {
+        /** How long an input keeps its "just triggered" highlight. */
+        const val TRIGGER_HIGHLIGHT_MS = 5 * 60 * 1000L
+
         fun empty(deviceId: Long) = DeviceStatus(deviceId = deviceId)
     }
 }
+
+private fun List<Long>.padTo4(): List<Long> =
+    if (size >= 4) this else this + List(4 - size) { 0L }
 
 private fun Char?.toTriState(): Boolean? = when (this) {
     '1' -> true

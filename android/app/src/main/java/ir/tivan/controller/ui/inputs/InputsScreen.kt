@@ -109,24 +109,35 @@ private fun InputCard(
     onEditResponse: () -> Unit
 ) {
     val c = Tivan
-    val triggered = state.triggered == true
+    val off = state.mode == 0
+    // An input turned off cannot be armed or fire, so that always wins; a fresh
+    // trigger outranks the live state; otherwise show what REPORT last said.
+    val alert = state.recentlyTriggered && !off
     val accent = when {
-        triggered -> c.alarm
-        state.mode == 0 -> c.dim2
+        off -> c.dim2
+        alert -> c.alarm
+        state.closed == null -> c.dim2
         else -> c.on
+    }
+    val label = when {
+        off -> "غیرفعال"
+        alert -> "تحریک!"
+        state.closed == true -> "وصل"
+        state.closed == false -> "قطع"
+        else -> "آماده"
     }
 
     GlassCard(
         Modifier.fillMaxWidth(),
-        tint = if (triggered) c.alarm.copy(alpha = 0.14f) else c.glass,
-        borderTint = if (triggered) c.alarm.copy(alpha = 0.4f) else c.stroke
+        tint = if (alert) c.alarm.copy(alpha = 0.14f) else c.glass,
+        borderTint = if (alert) c.alarm.copy(alpha = 0.4f) else c.stroke
     ) {
         Column(Modifier.padding(14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconTile(
                     state.icon,
-                    tint = if (triggered) c.alarm.copy(alpha = 0.18f) else c.glassStrong,
-                    borderTint = if (triggered) c.alarm.copy(alpha = 0.4f) else c.stroke
+                    tint = if (alert) c.alarm.copy(alpha = 0.18f) else c.glassStrong,
+                    borderTint = if (alert) c.alarm.copy(alpha = 0.4f) else c.stroke
                 )
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
@@ -136,20 +147,24 @@ private fun InputCard(
                         color = c.text
                     )
                     Text(
-                        if (state.triggered == null) "هنوز تحریکی ثبت نشده"
-                        else "آخرین تحریک: ${RelativeTime.ago(state.updatedAt)}",
+                        when {
+                            off -> "این ورودی خاموش است و تحریک نمی‌شود"
+                            state.triggeredAt > 0L ->
+                                "آخرین تحریک: ${RelativeTime.ago(state.triggeredAt)}"
+                            else -> "هنوز تحریکی ثبت نشده"
+                        },
                         style = MaterialTheme.typography.labelSmall,
                         color = c.dim2
                     )
+                    if (!off && state.stateAt > 0L) {
+                        Text(
+                            "وضعیت طبق گزارش: ${RelativeTime.ago(state.stateAt)}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = c.dim2.copy(alpha = 0.8f)
+                        )
+                    }
                 }
-                StatusPill(
-                    when {
-                        triggered -> "تحریک!"
-                        state.mode == 0 -> "غیرفعال"
-                        else -> "آماده"
-                    },
-                    accent
-                )
+                StatusPill(label, accent)
             }
 
             Spacer(Modifier.height(11.dp))

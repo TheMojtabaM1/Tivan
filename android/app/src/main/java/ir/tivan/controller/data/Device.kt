@@ -89,4 +89,11 @@ class Converters {
     @androidx.room.TypeConverter
     fun toIntList(data: String): List<Int> =
         if (data.isBlank()) emptyList() else data.split(",").mapNotNull { it.trim().toIntOrNull() }
+
+    @androidx.room.TypeConverter
+    fun fromLongList(list: List<Long>): String = list.joinToString(",")
+
+    @androidx.room.TypeConverter
+    fun toLongList(data: String): List<Long> =
+        if (data.isBlank()) emptyList() else data.split(",").mapNotNull { it.trim().toLongOrNull() }
 }

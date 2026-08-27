@@ -1,0 +1,98 @@
+package ir.tivan.controller.util
+
+import android.Manifest
+import android.app.Activity
+import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.provider.Settings
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
+import androidx.core.content.edit
+
+/**
+ * SMS permission handling.
+ *
+ * Since Android 10 the SMS permissions are *hard restricted*: unless the
+ * installer whitelists them, the system refuses to grant them at all and the
+ * "Allow" option is greyed out in Settings — which is what a sideloaded APK
+ * hits. Google Play whitelists them at install time; `adb install` and most
+ * file-manager installs do not.
+ *
+ * The app cannot lift that restriction itself, so instead of looping a request
+ * dialog that can never succeed, it distinguishes the three real cases and
+ * tells the user which one they are in. Sending still works without the
+ * permission by handing the message to the user's own SMS app.
+ */
+object SmsPermissions {
+
+    val SEND = Manifest.permission.SEND_SMS
+    val RECEIVE = Manifest.permission.RECEIVE_SMS
+    val READ = Manifest.permission.READ_SMS
+
+    val ALL = arrayOf(SEND, RECEIVE, READ)
+
+    enum class State {
+        /** Everything granted; commands send directly and replies parse automatically. */
+        Granted,
+
+        /** Not granted yet and the system will still show a dialog. */
+        Askable,
+
+        /**
+         * Denied with no dialog left to show — either "don't ask again" or the
+         * hard restriction on a sideloaded install. Recoverable only from
+         * Settings, adb, or by reinstalling through a store.
+         */
+        Blocked
+    }
+
+    private const val PREFS = "sms_permissions"
+    private const val KEY_ASKED = "asked"
+
+    fun granted(context: Context, permission: String): Boolean =
+        ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
+
+    fun canSendDirectly(context: Context): Boolean = granted(context, SEND)
+
+    /** True when incoming replies can be read, i.e. auto-confirmation works. */
+    fun canReceive(context: Context): Boolean = granted(context, RECEIVE)
+
+    fun state(activity: Activity): State {
+        val missing = ALL.filterNot { granted(activity, it) }
+        if (missing.isEmpty()) return State.Granted
+
+        // shouldShowRationale is false both before the first ask and once the
+        // system will no longer prompt, so the "have we asked" flag is what
+        // separates "not asked yet" from "asked and permanently refused".
+        val anyRationale = missing.any { ActivityCompat.shouldShowRequestPermissionRationale(activity, it) }
+        return when {
+            anyRationale -> State.Askable
+            hasAsked(activity) -> State.Blocked
+            else -> State.Askable
+        }
+    }
+
+    fun hasAsked(context: Context): Boolean =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_ASKED, false)
+
+    fun markAsked(context: Context) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putBoolean(KEY_ASKED, true) }
+    }
+
+    /** Opens this app's page in Settings, where the user can retry the toggle. */
+    fun openAppSettings(context: Context) {
+        val intent = Intent(
+            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+            Uri.fromParts("package", context.packageName, null)
+        ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        runCatching { context.startActivity(intent) }
+    }
+
+    /** The adb command that grants the restricted permissions without a store. */
+    fun adbCommand(packageName: String): String =
+        "adb shell pm grant $packageName android.permission.RECEIVE_SMS\n" +
+            "adb shell pm grant $packageName android.permission.SEND_SMS\n" +
+            "adb shell pm grant $packageName android.permission.READ_SMS"
+}

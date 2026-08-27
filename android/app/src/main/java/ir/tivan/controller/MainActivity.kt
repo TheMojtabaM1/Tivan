@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -38,6 +39,7 @@ import ir.tivan.controller.ui.status.StatusScreen
 import ir.tivan.controller.ui.theme.Tivan
 import ir.tivan.controller.ui.theme.TivanTheme
 import ir.tivan.controller.util.RelativeTime
+import ir.tivan.controller.util.SmsPermissions
 import kotlinx.coroutines.delay
 
 private enum class Tab(val label: String, val emoji: String) {
@@ -50,28 +52,46 @@ private enum class Tab(val label: String, val emoji: String) {
 
 class MainActivity : ComponentActivity() {
 
+    private val permissionState = mutableStateOf(SmsPermissions.State.Askable)
+
     private val permissionLauncher =
-        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {}
+        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+            SmsPermissions.markAsked(this)
+            refreshPermissionState()
+        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // Draw behind the system bars so the gradient reaches the edges; every
         // interactive surface then re-applies its own inset padding.
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        requestPermissionsIfNeeded()
+        refreshPermissionState()
+        if (!SmsPermissions.hasAsked(this)) requestSmsPermissions()
 
         setContent {
             TivanTheme {
-                RootScreen()
+                RootScreen(
+                    permissionState = permissionState.value,
+                    onRequestPermissions = ::requestSmsPermissions
+                )
             }
         }
     }
 
-    private fun requestPermissionsIfNeeded() {
+    override fun onResume() {
+        super.onResume()
+        // The user may have granted it in Settings while we were backgrounded.
+        refreshPermissionState()
+    }
+
+    private fun refreshPermissionState() {
+        permissionState.value = SmsPermissions.state(this)
+    }
+
+    private fun requestSmsPermissions() {
+        SmsPermissions.markAsked(this)
         val wanted = buildList {
-            add(Manifest.permission.SEND_SMS)
-            add(Manifest.permission.RECEIVE_SMS)
-            add(Manifest.permission.READ_SMS)
+            addAll(SmsPermissions.ALL)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 add(Manifest.permission.POST_NOTIFICATIONS)
             }
@@ -79,13 +99,19 @@ class MainActivity : ComponentActivity() {
         val missing = wanted.filter {
             ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
         }
-        if (missing.isNotEmpty()) permissionLauncher.launch(missing.toTypedArray())
+        if (missing.isEmpty()) refreshPermissionState()
+        else permissionLauncher.launch(missing.toTypedArray())
     }
 }
 
 @Composable
-private fun RootScreen(viewModel: MainViewModel = viewModel()) {
+private fun RootScreen(
+    permissionState: SmsPermissions.State,
+    onRequestPermissions: () -> Unit,
+    viewModel: MainViewModel = viewModel()
+) {
     val c = Tivan
+    val context = LocalContext.current
     var tab by rememberSaveable { mutableStateOf(Tab.Outputs) }
     var sheetOpen by rememberSaveable { mutableStateOf(false) }
 
@@ -174,6 +200,14 @@ private fun RootScreen(viewModel: MainViewModel = viewModel()) {
                     val header: @Composable () -> Unit = {
                         Column {
                             Spacer(Modifier.height(6.dp))
+                            if (permissionState != SmsPermissions.State.Granted) {
+                                PermissionBanner(
+                                    blocked = permissionState == SmsPermissions.State.Blocked,
+                                    canSend = SmsPermissions.canSendDirectly(context),
+                                    onRequest = onRequestPermissions
+                                )
+                                Spacer(Modifier.height(11.dp))
+                            }
                             DeviceBar(
                                 device = device,
                                 antenna = status?.antenna,

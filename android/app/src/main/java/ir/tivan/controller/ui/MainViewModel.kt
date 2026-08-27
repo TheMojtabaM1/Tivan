@@ -10,6 +10,7 @@ import ir.tivan.controller.data.LogDirection
 import ir.tivan.controller.data.MessageLog
 import ir.tivan.controller.sms.SmsSender
 import ir.tivan.controller.sms.StatusParser
+import ir.tivan.controller.util.SmsPermissions
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
@@ -30,9 +31,15 @@ data class InputUi(
     val index: Int,
     val message: String,
     val icon: String,
+    /** 0 = OFF, 1 = N.O, 2 = N.C. */
     val mode: Int,
-    val triggered: Boolean?,
-    val updatedAt: Long
+    /** Live state from the last REPORT; null when never reported. */
+    val closed: Boolean?,
+    val stateAt: Long,
+    /** When this input last fired; 0 = never. */
+    val triggeredAt: Long,
+    /** True only while that trigger is still fresh. */
+    val recentlyTriggered: Boolean
 )
 
 /** One-shot messages surfaced as a snackbar. */
@@ -96,16 +103,27 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    // Ticks while the screen is open so a "just triggered" highlight expires on
+    // its own instead of waiting for the next SMS to redraw the list.
+    private val highlightTicker: Flow<Long> = flow {
+        while (true) {
+            emit(System.currentTimeMillis())
+            delay(20_000)
+        }
+    }
+
     val inputs: StateFlow<List<InputUi>> =
-        combine(selectedDevice, status) { device, st ->
+        combine(selectedDevice, status, highlightTicker) { device, st, now ->
             (0..3).map { i ->
                 InputUi(
                     index = i,
                     message = device?.inputMessage(i) ?: "In${i + 1} Triggered",
                     icon = device?.inputIcon(i) ?: "📥",
                     mode = device?.inputModes?.getOrNull(i) ?: 1,
-                    triggered = st?.input(i),
-                    updatedAt = st?.inputsAt ?: 0L
+                    closed = st?.input(i),
+                    stateAt = st?.inputsAt ?: 0L,
+                    triggeredAt = st?.triggeredAt(i) ?: 0L,
+                    recentlyTriggered = st?.recentlyTriggered(i, now) ?: false
                 )
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -169,36 +187,72 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     // ---- commands -----------------------------------------------------------
-    fun sendCommand(command: String, toastText: String? = null) {
-        val device = selectedDevice.value ?: return
-        SmsSender.send(tivanApp, device.phoneNumber, command)
+    fun sendCommand(command: String, toastText: String? = null): SmsSender.Result {
+        val device = selectedDevice.value ?: return SmsSender.Result.Failed
+        val result = SmsSender.send(tivanApp, device.phoneNumber, command)
         viewModelScope.launch {
-            repo.addLog(device.id, LogDirection.OUT, command)
-            emitToast(toastText ?: "پیامک «$command» ارسال شد")
+            if (result != SmsSender.Result.Failed) {
+                repo.addLog(device.id, LogDirection.OUT, command)
+            }
+            emitToast(
+                when (result) {
+                    SmsSender.Result.Sent -> toastText ?: "پیامک «$command» ارسال شد"
+                    SmsSender.Result.Handoff -> "برنامه پیامک باز شد — دکمه ارسال را بزنید"
+                    SmsSender.Result.Failed -> "ارسال ناموفق بود — دسترسی پیامک را بررسی کنید"
+                }
+            )
         }
+        return result
     }
 
-    /** Sends the on/off command and parks the output in the pending state. */
+    /**
+     * Sends the on/off command and parks the output in the pending state.
+     *
+     * Only a command that actually left the device starts the pending timer;
+     * a failed send would otherwise leave the tile spinning for 90 seconds.
+     */
     fun toggleOutput(index: Int, turnOn: Boolean) {
         if (_pendingOutputs.value.containsKey(index)) return
         val command = if (turnOn) "${index + 1}1" else "${index + 1}0"
         _pendingOutputs.value = _pendingOutputs.value + (index to turnOn)
-        sendCommand(command, "دستور ارسال شد — منتظر تأیید دستگاه")
+        val result = sendCommand(command, "دستور ارسال شد — منتظر تأیید دستگاه")
+        if (result == SmsSender.Result.Failed) {
+            _pendingOutputs.value = _pendingOutputs.value - index
+            return
+        }
         startTimeout("out$index") {
             _pendingOutputs.value = _pendingOutputs.value - index
-            emitToast("تأییدی از دستگاه نرسید — وضعیت تغییر نکرد")
+            emitToast(confirmTimeoutMessage())
         }
     }
 
     fun setSecurity(armed: Boolean) {
         if (_pendingSecurity.value != null) return
         _pendingSecurity.value = armed
-        sendCommand(if (armed) "SECON" else "SECOF", "دستور ارسال شد — منتظر تأیید دستگاه")
+        val result = sendCommand(
+            if (armed) "SECON" else "SECOF",
+            "دستور ارسال شد — منتظر تأیید دستگاه"
+        )
+        if (result == SmsSender.Result.Failed) {
+            _pendingSecurity.value = null
+            return
+        }
         startTimeout("sec") {
             _pendingSecurity.value = null
-            emitToast("تأییدی از دستگاه نرسید — وضعیت دزدگیر تغییر نکرد")
+            emitToast(confirmTimeoutMessage())
         }
     }
+
+    /**
+     * Without RECEIVE_SMS the confirmation can never arrive, so say that
+     * plainly instead of blaming the controller for not answering.
+     */
+    private fun confirmTimeoutMessage(): String =
+        if (SmsPermissions.canReceive(tivanApp)) {
+            "تأییدی از دستگاه نرسید — وضعیت تغییر نکرد"
+        } else {
+            "بدون دسترسی دریافت پیامک، تأیید خودکار ممکن نیست"
+        }
 
     // ---- device management --------------------------------------------------
     fun selectDevice(id: Long) = repo.selectDevice(id)

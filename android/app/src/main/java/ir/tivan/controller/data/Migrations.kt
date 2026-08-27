@@ -94,5 +94,29 @@ object Migrations {
         }
     }
 
-    val ALL = arrayOf(MIGRATION_1_2)
+    /**
+     * v2 → v3: per-input trigger timestamps.
+     *
+     * v2 recorded a trigger by flipping the input's live-state character, which
+     * had no way back to idle — an input that fired once stayed "triggered"
+     * forever and shadowed what REPORT said. Trigger times now live in their own
+     * column so the two never collide.
+     *
+     * Here a plain ADD COLUMN is safe: the entity declares a default for this
+     * field, so the generated schema carries one too.
+     */
+    val MIGRATION_2_3 = object : Migration(2, 3) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "ALTER TABLE device_status ADD COLUMN inputTriggeredAt " +
+                    "TEXT NOT NULL DEFAULT '0,0,0,0'"
+            )
+            // Any input marked triggered under v2 has an unknown trigger time and
+            // an unreliable live state; clear the state so it reads as "unknown"
+            // rather than asserting something stale.
+            db.execSQL("UPDATE device_status SET inputStates = '????'")
+        }
+    }
+
+    val ALL = arrayOf(MIGRATION_1_2, MIGRATION_2_3)
 }

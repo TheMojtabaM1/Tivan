@@ -69,7 +69,43 @@ class StatusParserTest {
     fun `default input trigger text is recognised`() {
         val r = parse(device(), "In3 Triggered")
         assertEquals(listOf(2), r.triggeredInputs)
-        assertEquals(true, r.status.input(2))
+        assertEquals(now, r.status.triggeredAt(2))
+    }
+
+    /**
+     * Regression: a trigger used to be written into the live-state field, which
+     * nothing ever cleared, so the input read "triggered" forever and shadowed
+     * whatever REPORT said.
+     */
+    @Test
+    fun `a trigger records a timestamp and leaves live state alone`() {
+        val r = parse(device(), "In1 Triggered")
+        assertEquals(now, r.status.triggeredAt(0))
+        assertEquals(null, r.status.input(0))
+    }
+
+    @Test
+    fun `a trigger highlight expires`() {
+        val s = parse(device(), "In1 Triggered").status
+        assertTrue(s.recentlyTriggered(0, now + 60_000))
+        assertFalse(s.recentlyTriggered(0, now + DeviceStatus.TRIGGER_HIGHLIGHT_MS + 1))
+    }
+
+    @Test
+    fun `one input firing does not mark the others`() {
+        val s = parse(device(), "In2 Triggered").status
+        assertEquals(now, s.triggeredAt(1))
+        assertEquals(0L, s.triggeredAt(0))
+        assertEquals(0L, s.triggeredAt(2))
+        assertEquals(0L, s.triggeredAt(3))
+    }
+
+    @Test
+    fun `a later REPORT still wins over an old trigger`() {
+        val afterTrigger = parse(device(), "In1 Triggered").status
+        val r = StatusParser.parse(device(), "IN1:0", afterTrigger, now + 1_000)
+        assertEquals(false, r.status.input(0))
+        assertEquals(now, r.status.triggeredAt(0))
     }
 
     @Test

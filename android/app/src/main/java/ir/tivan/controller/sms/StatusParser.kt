@@ -81,7 +81,11 @@ object StatusParser {
             val hit = (custom.isNotBlank() && upper.contains(custom.uppercase())) ||
                 upper.contains(default)
             if (hit) {
-                status = status.withInput(i, triggered = true, at = now)
+                // A trigger is an event: stamp when it happened, and leave the
+                // live state to REPORT. Writing it into inputStates used to pin
+                // the input to "triggered" for good, since the controller never
+                // announces that an input went idle again.
+                status = status.withInputTriggered(i, now)
                 triggered += i
                 recognized = true
             }
