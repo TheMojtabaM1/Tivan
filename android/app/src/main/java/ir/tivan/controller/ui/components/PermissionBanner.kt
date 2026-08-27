@@ -1,13 +1,16 @@
 package ir.tivan.controller.ui.components
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
@@ -62,7 +65,8 @@ fun PermissionBanner(
                             blocked && canSend ->
                                 "دریافت پیامک اجازه ندارد، پس تأیید خودکار وضعیت کار نمی‌کند."
                             blocked ->
-                                "اندروید این دسترسی را برای نصب بیرون از فروشگاه محدود کرده است."
+                                "چون برنامه از بیرون فروشگاه نصب شده، اندروید قفلش کرده. " +
+                                    "با چند مرحله در تنظیمات باز می‌شود."
                             else ->
                                 "برای ارسال دستور و خواندن پاسخ دستگاه لازم است."
                         },
@@ -79,7 +83,7 @@ fun PermissionBanner(
                         onClick = { showHelp = true },
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(13.dp)
-                    ) { Text("راه حل") }
+                    ) { Text("چطور فعال کنم؟") }
                     OutlinedButton(
                         onClick = { SmsPermissions.openAppSettings(context) },
                         modifier = Modifier.weight(1f),
@@ -114,7 +118,7 @@ fun PermissionBanner(
             containerColor = if (c.dark) Color(0xFF141828) else Color.White,
             title = {
                 Text(
-                    "چرا «Allow» خاکستری است؟",
+                    "چطور دسترسی را فعال کنم؟",
                     style = MaterialTheme.typography.titleMedium,
                     color = c.text
                 )
@@ -122,19 +126,46 @@ fun PermissionBanner(
             text = {
                 Column(Modifier.verticalScroll(rememberScrollState())) {
                     Text(
-                        "از اندروید ۱۰ به بعد، دسترسی پیامک جزو دسترسی‌های «محدودشده» است. " +
-                            "وقتی برنامه از بیرون فروشگاه نصب شود، سیستم اجازه‌ی فعال کردن آن " +
-                            "را نمی‌دهد و گزینه Allow خاکستری می‌ماند. این ایراد برنامه نیست و " +
-                            "از داخل خود برنامه هم قابل رفع نیست.",
+                        "اندروید دسترسی پیامک را برای برنامه‌هایی که از بیرون فروشگاه نصب " +
+                            "شده‌اند قفل می‌کند، برای همین گزینه Allow خاکستری است. با یک بار " +
+                            "باز کردن این قفل در تنظیمات، قابل فعال شدن می‌شود.",
                         style = MaterialTheme.typography.bodySmall,
                         color = c.dim
                     )
+
+                    Spacer(Modifier.height(15.dp))
+                    Text(
+                        "مرحله به مرحله",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = c.text
+                    )
+                    Spacer(Modifier.height(7.dp))
+                    Step("۱", "روی آیکون برنامه نگه دارید و «App info» را بزنید — یا از مسیر Settings ← Apps ← TIVAN Controller بروید.")
+                    Step("۲", "در صفحه App info، منوی سه‌نقطه (⋮) بالای صفحه را بزنید. در گوشی‌های سامسونگ ممکن است به‌جای سه‌نقطه، «More» نوشته باشد.")
+                    Step("۳", "گزینه «Allow restricted settings» را بزنید. اگر رمز یا اثر انگشت خواست، تأیید کنید.")
+                    Step("۴", "به Permissions برگردید، روی SMS بزنید و «Allow» را انتخاب کنید. حالا دیگر خاکستری نیست.")
+
                     Spacer(Modifier.height(14.dp))
-                    Text("راه اول — با کامپیوتر", style = MaterialTheme.typography.titleSmall, color = c.text)
+                    Text(
+                        "اگر «Allow restricted settings» را ندیدید",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = c.text
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    Hint("شیائومی و ردمی", "اول Settings ← Privacy protection ← Special permissions ← Install unknown apps را برای این برنامه روشن کنید، بعد این گزینه ظاهر می‌شود.")
+                    Hint("موتورولا", "اگر ⋮ در صفحه اصلی App info نبود، اول Permissions را باز کنید؛ منو معمولاً آنجاست.")
+                    Hint("وان‌پلاس و اوپو", "از مسیر App info ← App details ← Permissions دنبال منو بگردید.")
+
+                    Spacer(Modifier.height(14.dp))
+                    Text(
+                        "راه جایگزین — با کامپیوتر",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = c.text
+                    )
                     Spacer(Modifier.height(5.dp))
                     Text(
-                        "گوشی را با USB به کامپیوتر وصل کنید، USB debugging را روشن کنید و " +
-                            "این دستورها را اجرا کنید:",
+                        "اگر هیچ‌کدام جواب نداد، گوشی را با USB وصل کنید، USB debugging را روشن " +
+                            "کنید و این دستورها را روی کامپیوتر اجرا کنید:",
                         style = MaterialTheme.typography.labelSmall,
                         color = c.dim
                     )
@@ -151,25 +182,63 @@ fun PermissionBanner(
                             modifier = Modifier.padding(10.dp)
                         )
                     }
-                    Spacer(Modifier.height(6.dp))
+                    Spacer(Modifier.height(4.dp))
                     TextButton(onClick = { clipboard.setText(AnnotatedString(adb)) }) {
                         Text("کپی دستورها")
                     }
 
                     Spacer(Modifier.height(10.dp))
-                    Text("راه دوم — بدون کامپیوتر", style = MaterialTheme.typography.titleSmall, color = c.text)
-                    Spacer(Modifier.height(5.dp))
                     Text(
-                        "از همین برنامه استفاده کنید بدون دسترسی: هنگام زدن هر دکمه، برنامه " +
-                            "پیامک گوشی با متن آماده باز می‌شود و فقط کافی است ارسال را بزنید. " +
-                            "در این حالت وضعیت خودکار به‌روز نمی‌شود و باید گزارش دستگاه را " +
-                            "خودتان ببینید.",
+                        "تا وقتی دسترسی را ندهید، برنامه همچنان کار می‌کند: با هر دکمه، " +
+                            "برنامه پیامک خود گوشی با متن دستور آماده باز می‌شود و شما ارسال " +
+                            "را می‌زنید. فقط تأیید خودکار وضعیت کار نمی‌کند، چون خواندن پاسخ " +
+                            "دستگاه به دسترسی دریافت پیامک نیاز دارد.",
                         style = MaterialTheme.typography.bodySmall,
                         color = c.dim
                     )
                 }
             },
-            confirmButton = { TextButton(onClick = { showHelp = false }) { Text("متوجه شدم") } }
+            confirmButton = {
+                TextButton(onClick = {
+                    showHelp = false
+                    SmsPermissions.openAppSettings(context)
+                }) { Text("باز کردن تنظیمات") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showHelp = false }) { Text("بستن") }
+            }
         )
+    }
+}
+
+@Composable
+private fun Step(number: String, text: String) {
+    val c = Tivan
+    Row(Modifier.padding(bottom = 9.dp)) {
+        Box(
+            Modifier
+                .size(22.dp)
+                .clip(CircleShape)
+                .background(c.primary.copy(alpha = 0.22f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(number, style = MaterialTheme.typography.labelSmall, color = c.primary)
+        }
+        Spacer(Modifier.width(9.dp))
+        Text(
+            text,
+            style = MaterialTheme.typography.bodySmall,
+            color = c.dim,
+            modifier = Modifier.weight(1f)
+        )
+    }
+}
+
+@Composable
+private fun Hint(brand: String, text: String) {
+    val c = Tivan
+    Column(Modifier.padding(bottom = 8.dp)) {
+        Text(brand, style = MaterialTheme.typography.labelMedium, color = c.text)
+        Text(text, style = MaterialTheme.typography.labelSmall, color = c.dim2)
     }
 }

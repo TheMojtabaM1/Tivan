@@ -14,16 +14,16 @@ import androidx.core.content.edit
 /**
  * SMS permission handling.
  *
- * Since Android 10 the SMS permissions are *hard restricted*: unless the
- * installer whitelists them, the system refuses to grant them at all and the
- * "Allow" option is greyed out in Settings — which is what a sideloaded APK
- * hits. Google Play whitelists them at install time; `adb install` and most
- * file-manager installs do not.
+ * The SMS permissions are restricted for apps installed outside a store, so on
+ * a sideloaded build the "Allow" option is greyed out and re-requesting can
+ * never succeed. The user unlocks it once via App info → ⋮ → "Allow restricted
+ * settings" (labelled "More" on Samsung), after which the normal SMS toggle
+ * works; [PermissionBanner] walks them through it.
  *
- * The app cannot lift that restriction itself, so instead of looping a request
- * dialog that can never succeed, it distinguishes the three real cases and
- * tells the user which one they are in. Sending still works without the
- * permission by handing the message to the user's own SMS app.
+ * The app cannot lift the restriction itself, so rather than looping a dialog
+ * that does nothing, it tells the three cases apart and shows the right
+ * instructions. Sending keeps working meanwhile by handing the message to the
+ * user's own SMS app, which holds the permission itself.
  */
 object SmsPermissions {
 
