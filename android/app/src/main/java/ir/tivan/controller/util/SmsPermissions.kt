@@ -29,9 +29,13 @@ object SmsPermissions {
 
     val SEND = Manifest.permission.SEND_SMS
     val RECEIVE = Manifest.permission.RECEIVE_SMS
-    val READ = Manifest.permission.READ_SMS
 
-    val ALL = arrayOf(SEND, RECEIVE, READ)
+    /**
+     * READ_SMS is intentionally absent: the app never reads the message
+     * database, so requesting it would ask for the user's whole SMS history to
+     * no purpose and weaken the case for the Play permissions declaration.
+     */
+    val ALL = arrayOf(SEND, RECEIVE)
 
     enum class State {
         /** Everything granted; commands send directly and replies parse automatically. */
@@ -93,6 +97,5 @@ object SmsPermissions {
     /** The adb command that grants the restricted permissions without a store. */
     fun adbCommand(packageName: String): String =
         "adb shell pm grant $packageName android.permission.RECEIVE_SMS\n" +
-            "adb shell pm grant $packageName android.permission.SEND_SMS\n" +
-            "adb shell pm grant $packageName android.permission.READ_SMS"
+            "adb shell pm grant $packageName android.permission.SEND_SMS"
 }

@@ -1,10 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!--
+      Only the two SMS permissions the app actually exercises: it sends command
+      messages and reads the controller's replies as they arrive. It never reads
+      the SMS database, so READ_SMS is deliberately not requested — it would
+      grant access to the user's entire message history for no benefit, and it
+      is the permission Google Play scrutinises most closely.
+    -->
     <uses-permission android:name="android.permission.SEND_SMS" />
     <uses-permission android:name="android.permission.RECEIVE_SMS" />
-    <uses-permission android:name="android.permission.READ_SMS" />
-    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
