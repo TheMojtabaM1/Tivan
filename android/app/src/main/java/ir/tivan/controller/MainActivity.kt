@@ -24,7 +24,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -40,6 +39,7 @@ import ir.tivan.controller.ui.theme.Tivan
 import ir.tivan.controller.ui.theme.TivanTheme
 import ir.tivan.controller.util.RelativeTime
 import ir.tivan.controller.util.SmsPermissions
+import ir.tivan.controller.util.NotificationAccess
 import kotlinx.coroutines.delay
 
 private enum class Tab(val label: String, val emoji: String) {
@@ -60,6 +60,8 @@ class MainActivity : ComponentActivity() {
             refreshPermissionState()
         }
 
+    private val notificationAccess = mutableStateOf(false)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         // Draw behind the system bars so the gradient reaches the edges; every
         // interactive surface then re-applies its own inset padding.
@@ -72,7 +74,9 @@ class MainActivity : ComponentActivity() {
             TivanTheme {
                 RootScreen(
                     permissionState = permissionState.value,
-                    onRequestPermissions = ::requestSmsPermissions
+                    notificationAccess = notificationAccess.value,
+                    onRequestPermissions = ::requestSmsPermissions,
+                    onEnableNotificationAccess = { NotificationAccess.openSettings(this) }
                 )
             }
         }
@@ -86,6 +90,7 @@ class MainActivity : ComponentActivity() {
 
     private fun refreshPermissionState() {
         permissionState.value = SmsPermissions.state(this)
+        notificationAccess.value = NotificationAccess.isEnabled(this)
     }
 
     private fun requestSmsPermissions() {
@@ -107,11 +112,12 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun RootScreen(
     permissionState: SmsPermissions.State,
+    notificationAccess: Boolean,
     onRequestPermissions: () -> Unit,
+    onEnableNotificationAccess: () -> Unit,
     viewModel: MainViewModel = viewModel()
 ) {
     val c = Tivan
-    val context = LocalContext.current
     var tab by rememberSaveable { mutableStateOf(Tab.Outputs) }
     var sheetOpen by rememberSaveable { mutableStateOf(false) }
 
@@ -203,8 +209,9 @@ private fun RootScreen(
                             if (permissionState != SmsPermissions.State.Granted) {
                                 PermissionBanner(
                                     blocked = permissionState == SmsPermissions.State.Blocked,
-                                    canSend = SmsPermissions.canSendDirectly(context),
-                                    onRequest = onRequestPermissions
+                                    notificationAccess = notificationAccess,
+                                    onRequest = onRequestPermissions,
+                                    onEnableNotificationAccess = onEnableNotificationAccess
                                 )
                                 Spacer(Modifier.height(11.dp))
                             }
@@ -215,7 +222,6 @@ private fun RootScreen(
                             )
                             Spacer(Modifier.height(13.dp))
                             HeroFor(
-                                tab = tab,
                                 alarmInput = alarm,
                                 pendingOutputs = outputs.filter { it.pending },
                                 pendingSecurity = pendingSecurity,
@@ -256,7 +262,6 @@ private fun RootScreen(
 
 @Composable
 private fun HeroFor(
-    tab: Tab,
     alarmInput: Int?,
     pendingOutputs: List<ir.tivan.controller.ui.OutputUi>,
     pendingSecurity: Boolean?,
