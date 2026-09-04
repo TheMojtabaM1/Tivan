@@ -90,7 +90,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     val outputs: StateFlow<List<OutputUi>> =
         combine(selectedDevice, status, _pendingOutputs) { device, st, pending ->
-            (0..3).map { i ->
+            val count = device?.channelCount ?: 4
+            (0 until count).map { i ->
                 OutputUi(
                     index = i,
                     name = device?.outputName(i) ?: "OUT${i + 1}",
@@ -114,7 +115,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     val inputs: StateFlow<List<InputUi>> =
         combine(selectedDevice, status, highlightTicker) { device, st, now ->
-            (0..3).map { i ->
+            val count = device?.channelCount ?: 4
+            (0 until count).map { i ->
                 InputUi(
                     index = i,
                     message = device?.inputMessage(i) ?: "In${i + 1} Triggered",
@@ -257,9 +259,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     // ---- device management --------------------------------------------------
     fun selectDevice(id: Long) = repo.selectDevice(id)
 
-    fun addDevice(name: String, phone: String, icon: String) {
+    fun addDevice(name: String, phone: String, icon: String, channelCount: Int = 4) {
         viewModelScope.launch {
-            repo.addDevice(name.ifBlank { "دستگاه جدید" }, phone, icon)
+            repo.addDevice(name.ifBlank { "دستگاه جدید" }, phone, icon, channelCount)
             emitToast("دستگاه اضافه شد")
         }
     }
@@ -285,10 +287,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val clean = name.take(14).trim()
         updateDevice { d ->
             d.copy(
-                outputNames = d.outputNames.padTo(4, Device.DEFAULT_OUTPUT_NAMES)
+                outputNames = d.outputNames.padTo(d.channelCount) { "OUT${it + 1}" }
                     .replaceAt(index, clean.ifBlank { "OUT${index + 1}" }),
-                outputIcons = d.outputIcons.padTo(4, Device.DEFAULT_OUTPUT_ICONS)
-                    .replaceAt(index, icon)
+                outputIcons = d.outputIcons.padTo(d.channelCount) { i ->
+                    Device.DEFAULT_OUTPUT_ICONS.getOrElse(i) { "🔌" }
+                }.replaceAt(index, icon)
             )
         }
         if (clean.isNotBlank()) sendCommand("NAMEOUT${index + 1}:$clean", "نام خروجی ${index + 1} تغییر کرد")
@@ -298,10 +301,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val clean = message.take(24).trim()
         updateDevice { d ->
             d.copy(
-                inputMessages = d.inputMessages.padTo(4, Device.DEFAULT_INPUT_MESSAGES)
+                inputMessages = d.inputMessages.padTo(d.channelCount) { "In${it + 1} Triggered" }
                     .replaceAt(index, clean.ifBlank { "In${index + 1} Triggered" }),
-                inputIcons = d.inputIcons.padTo(4, Device.DEFAULT_INPUT_ICONS)
-                    .replaceAt(index, icon)
+                inputIcons = d.inputIcons.padTo(d.channelCount) { i ->
+                    Device.DEFAULT_INPUT_ICONS.getOrElse(i) { "📥" }
+                }.replaceAt(index, icon)
             )
         }
         if (clean.isNotBlank()) sendCommand("PAYAMEIN${index + 1}:$clean", "پیام ورودی ${index + 1} تغییر کرد")
@@ -309,14 +313,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setInputMode(index: Int, mode: Int) {
         updateDevice { d ->
-            d.copy(inputModes = d.inputModes.padTo(4, listOf(1, 1, 1, 1)).replaceAt(index, mode))
+            d.copy(inputModes = d.inputModes.padTo(d.channelCount) { 1 }.replaceAt(index, mode))
         }
         sendCommand("MODE${index + 1}$mode")
     }
 
     fun setInputResponse(index: Int, level: Int) {
         updateDevice { d ->
-            d.copy(inputResponses = d.inputResponses.padTo(4, listOf(0, 0, 0, 0)).replaceAt(index, level))
+            d.copy(inputResponses = d.inputResponses.padTo(d.channelCount) { 0 }.replaceAt(index, level))
         }
         sendCommand("SET${index + 1}$level")
     }
@@ -381,9 +385,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 }
 
-private fun <T> List<T>.padTo(size: Int, defaults: List<T>): List<T> {
+private fun <T> List<T>.padTo(size: Int, default: (index: Int) -> T): List<T> {
     if (this.size >= size) return this
-    return this + (this.size until size).map { defaults[it] }
+    return this + (this.size until size).map(default)
 }
 
 private fun <T> List<T>.replaceAt(index: Int, value: T): List<T> =

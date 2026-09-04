@@ -31,14 +31,14 @@ import ir.tivan.controller.ui.theme.Tivan
 @Composable
 fun GlassCard(
     modifier: Modifier = Modifier,
-    corner: Dp = 22.dp,
+    corner: Dp? = null,
     tint: Color? = null,
     borderTint: Color? = null,
     onClick: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
     val c = Tivan
-    val shape: Shape = RoundedCornerShape(corner)
+    val shape: Shape = RoundedCornerShape(corner ?: c.cardCorner)
     val base = tint ?: c.glass
 
     var m = modifier

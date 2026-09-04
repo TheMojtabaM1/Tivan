@@ -1,5 +1,6 @@
 package ir.tivan.controller.data
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
@@ -16,6 +17,10 @@ data class Device(
     val name: String,
     val phoneNumber: String,
     val icon: String = "🏠",
+
+    /** How many output/input channels this controller has: 2, 4, or 8. */
+    @ColumnInfo(defaultValue = "4")
+    val channelCount: Int = 4,
 
     /** NAMEOUT1..4 — max 14 chars each, as sent back in reports ("PUMP ON"). */
     val outputNames: List<String> = DEFAULT_OUTPUT_NAMES,
@@ -61,6 +66,9 @@ data class Device(
             ?: DEFAULT_INPUT_ICONS.getOrElse(index) { "📥" }
 
     companion object {
+        /** The only channel counts the S44T family ships in. */
+        val CHANNEL_OPTIONS = listOf(2, 4, 8)
+
         val DEFAULT_OUTPUT_NAMES = listOf("OUT1", "OUT2", "OUT3", "OUT4")
         val DEFAULT_INPUT_MESSAGES =
             listOf("In1 Triggered", "In2 Triggered", "In3 Triggered", "In4 Triggered")

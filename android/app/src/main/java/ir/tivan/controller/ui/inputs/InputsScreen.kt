@@ -52,7 +52,7 @@ fun InputsScreen(viewModel: MainViewModel, header: @Composable () -> Unit) {
             .padding(horizontal = 16.dp)
     ) {
         header()
-        SectionHeader("ورودی‌ها", "۴ ورودی تحریک")
+        SectionHeader("ورودی‌ها", "${RelativeTime.fa(inputs.size)} ورودی تحریک")
 
         inputs.forEach { input ->
             InputCard(

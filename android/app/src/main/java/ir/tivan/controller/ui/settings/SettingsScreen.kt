@@ -19,10 +19,14 @@ import ir.tivan.controller.ui.MainViewModel
 import ir.tivan.controller.ui.components.*
 import ir.tivan.controller.ui.inputs.SegmentButton
 import ir.tivan.controller.ui.security.EmptyHint
+import ir.tivan.controller.ui.theme.AppTheme
 import ir.tivan.controller.ui.theme.Tivan
+import ir.tivan.controller.util.AppPreferences
 import ir.tivan.controller.util.RelativeTime
+import ir.tivan.controller.util.UiMode
 
 private enum class SettingsTab(val label: String, val emoji: String) {
+    Appearance("نما", "🎨"),
     Numbers("شماره‌ها", "👤"),
     Reports("گزارش", "🔔"),
     Outputs("خروجی", "⏱"),
@@ -32,7 +36,7 @@ private enum class SettingsTab(val label: String, val emoji: String) {
 }
 
 @Composable
-fun SettingsScreen(viewModel: MainViewModel, header: @Composable () -> Unit) {
+fun SettingsScreen(viewModel: MainViewModel, prefs: AppPreferences, header: @Composable () -> Unit) {
     val c = Tivan
     var tab by remember { mutableStateOf(SettingsTab.Numbers) }
 
@@ -84,6 +88,7 @@ fun SettingsScreen(viewModel: MainViewModel, header: @Composable () -> Unit) {
                 .padding(top = 14.dp)
         ) {
             when (tab) {
+                SettingsTab.Appearance -> AppearanceTab(prefs)
                 SettingsTab.Numbers -> NumbersTab(viewModel)
                 SettingsTab.Reports -> ReportsTab(viewModel)
                 SettingsTab.Outputs -> OutputsTab(viewModel)
@@ -93,6 +98,96 @@ fun SettingsScreen(viewModel: MainViewModel, header: @Composable () -> Unit) {
             }
             Spacer(Modifier.height(28.dp))
         }
+    }
+}
+
+// -------------------------------------------------------------- appearance ---
+@Composable
+private fun AppearanceTab(prefs: AppPreferences) {
+    val c = Tivan
+    val theme by prefs.theme.collectAsState()
+    val uiMode by prefs.uiMode.collectAsState()
+
+    SettingsGroup("طرح ظاهری") {
+        Text(
+            "هر سه طرح روی همه‌ی صفحه‌ها اعمال می‌شود و بلافاصله تغییر می‌کند.",
+            style = MaterialTheme.typography.labelSmall,
+            color = c.dim
+        )
+        Spacer(Modifier.height(11.dp))
+        AppTheme.entries.forEach { t ->
+            ThemeRow(theme = t, selected = t == theme, onClick = { prefs.setTheme(t) })
+            Spacer(Modifier.height(8.dp))
+        }
+    }
+
+    Spacer(Modifier.height(10.dp))
+    SettingsGroup("حالت نمایش") {
+        Text(
+            "حالت ساده فقط کنترل خروجی‌ها و دزدگیر را جلوی چشم می‌گذارد؛ بقیه‌ی " +
+                "تنظیمات همچنان از همین‌جا در دسترس‌اند. حالت پیشرفته همه‌ی تب‌ها را نشان می‌دهد.",
+            style = MaterialTheme.typography.labelSmall,
+            color = c.dim
+        )
+        Spacer(Modifier.height(11.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            SegmentButton(
+                text = "ساده",
+                selected = uiMode == UiMode.SIMPLE,
+                modifier = Modifier.weight(1f),
+                onClick = { prefs.setUiMode(UiMode.SIMPLE) }
+            )
+            SegmentButton(
+                text = "پیشرفته",
+                selected = uiMode == UiMode.ADVANCED,
+                modifier = Modifier.weight(1f),
+                onClick = { prefs.setUiMode(UiMode.ADVANCED) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun ThemeRow(theme: AppTheme, selected: Boolean, onClick: () -> Unit) {
+    val c = Tivan
+    val tokens = ir.tivan.controller.ui.theme.tokensFor(theme)
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(if (selected) c.primary.copy(alpha = 0.14f) else c.glassStrong)
+            .border(
+                1.dp,
+                if (selected) c.primary.copy(alpha = 0.5f) else c.stroke,
+                RoundedCornerShape(16.dp)
+            )
+            .clickable(onClick = onClick)
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // A tiny live swatch of the theme's own palette, so the picker shows
+        // what it means rather than just naming it.
+        Box(
+            Modifier
+                .size(36.dp)
+                .clip(RoundedCornerShape((tokens.cardCorner.value / 1.6f).dp.coerceIn(3.dp, 16.dp)))
+                .background(tokens.bg)
+                .border(1.dp, tokens.stroke, RoundedCornerShape((tokens.cardCorner.value / 1.6f).dp.coerceIn(3.dp, 16.dp)))
+        ) {
+            Box(
+                Modifier
+                    .padding(6.dp)
+                    .size(10.dp)
+                    .clip(RoundedCornerShape(3.dp))
+                    .background(tokens.primary)
+            )
+        }
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(theme.label, style = MaterialTheme.typography.titleSmall, color = c.text)
+            Text(theme.description, style = MaterialTheme.typography.labelSmall, color = c.dim2)
+        }
+        if (selected) StatusPill("فعال", c.primary)
     }
 }
 
@@ -232,6 +327,8 @@ private fun ReportsTab(viewModel: MainViewModel) {
 @Composable
 private fun OutputsTab(viewModel: MainViewModel) {
     val c = Tivan
+    val device by viewModel.selectedDevice.collectAsState()
+    val channelCount = device?.channelCount ?: 4
     var output by remember { mutableStateOf(1) }
     var minutes by remember { mutableStateOf("10") }
 
@@ -245,15 +342,21 @@ private fun OutputsTab(viewModel: MainViewModel) {
         Spacer(Modifier.height(12.dp))
         Text("خروجی", style = MaterialTheme.typography.labelSmall, color = c.dim)
         Spacer(Modifier.height(7.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-            (1..4).forEach { n ->
-                SegmentButton(
-                    text = RelativeTime.fa(n),
-                    selected = output == n,
-                    modifier = Modifier.weight(1f),
-                    onClick = { output = n }
-                )
+        // Wrapped into rows of 4 so 8-channel devices don't squeeze the buttons
+        // down to an unreadable width.
+        (1..channelCount).chunked(4).forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                row.forEach { n ->
+                    SegmentButton(
+                        text = RelativeTime.fa(n),
+                        selected = output == n,
+                        modifier = Modifier.weight(1f),
+                        onClick = { output = n }
+                    )
+                }
+                repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
             }
+            Spacer(Modifier.height(7.dp))
         }
         Spacer(Modifier.height(12.dp))
         LabeledField(

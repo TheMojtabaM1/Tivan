@@ -44,9 +44,9 @@ fun OutputsScreen(viewModel: MainViewModel, header: @Composable () -> Unit) {
 
         SectionHeader("خروجی‌ها", "لمس برای روشن یا خاموش")
 
-        // Fixed 2×2 — a LazyVerticalGrid inside a scrolling column needs a
-        // hard height, and four items never need lazy layout anyway.
-        for (rowStart in 0 until 4 step 2) {
+        // 2-per-row — a LazyVerticalGrid inside a scrolling column needs a hard
+        // height, and up to 8 items never need lazy layout anyway.
+        for (rowStart in outputs.indices step 2) {
             Row(horizontalArrangement = Arrangement.spacedBy(11.dp)) {
                 for (i in rowStart until minOf(rowStart + 2, outputs.size)) {
                     OutputTile(
@@ -62,12 +62,15 @@ fun OutputsScreen(viewModel: MainViewModel, header: @Composable () -> Unit) {
                 }
                 if (outputs.size - rowStart == 1) Spacer(Modifier.weight(1f))
             }
-            if (rowStart == 0) Spacer(Modifier.height(11.dp))
+            if (rowStart + 2 < outputs.size) Spacer(Modifier.height(11.dp))
         }
 
         SectionHeader("میان‌بر")
-        ActionRow("⚡", "خاموش کردن همه خروجی‌ها", "ارسال ۱۰، ۲۰، ۳۰ و ۴۰") {
-            repeat(4) { viewModel.toggleOutput(it, false) }
+        ActionRow(
+            "⚡", "خاموش کردن همه خروجی‌ها",
+            "ارسال ${outputs.indices.joinToString(" و ") { "${it + 1}0" }}"
+        ) {
+            outputs.indices.forEach { viewModel.toggleOutput(it, false) }
         }
         Spacer(Modifier.height(9.dp))
         ActionRow("🔄", "درخواست گزارش وضعیت", "ارسال REPORT به دستگاه") {

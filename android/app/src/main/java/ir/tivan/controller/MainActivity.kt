@@ -37,18 +37,25 @@ import ir.tivan.controller.ui.settings.SettingsScreen
 import ir.tivan.controller.ui.status.StatusScreen
 import ir.tivan.controller.ui.theme.Tivan
 import ir.tivan.controller.ui.theme.TivanTheme
+import ir.tivan.controller.ui.onboarding.OnboardingScreen
+import ir.tivan.controller.ui.theme.AppTheme
+import ir.tivan.controller.util.AppPreferences
 import ir.tivan.controller.util.RelativeTime
 import ir.tivan.controller.util.SmsPermissions
 import ir.tivan.controller.util.NotificationAccess
+import ir.tivan.controller.util.UiMode
 import kotlinx.coroutines.delay
 
-private enum class Tab(val label: String, val emoji: String) {
-    Outputs("خروجی", "⚡"),
+private enum class Tab(val label: String, val emoji: String, val simpleLabel: String = label) {
+    Outputs("خروجی", "⚡", simpleLabel = "کنترل"),
     Inputs("ورودی", "📥"),
     Security("دزدگیر", "🛡"),
     Status("وضعیت", "📊"),
     Settings("تنظیمات", "⚙")
 }
+
+/** Tabs shown in simple mode — outputs and security, with everything else under Settings. */
+private val SIMPLE_TABS = listOf(Tab.Outputs, Tab.Security, Tab.Settings)
 
 class MainActivity : ComponentActivity() {
 
@@ -61,23 +68,35 @@ class MainActivity : ComponentActivity() {
         }
 
     private val notificationAccess = mutableStateOf(false)
+    private lateinit var prefs: AppPreferences
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // Draw behind the system bars so the gradient reaches the edges; every
         // interactive surface then re-applies its own inset padding.
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        prefs = AppPreferences(this)
         refreshPermissionState()
         if (!SmsPermissions.hasAsked(this)) requestSmsPermissions()
 
         setContent {
-            TivanTheme {
-                RootScreen(
-                    permissionState = permissionState.value,
-                    notificationAccess = notificationAccess.value,
-                    onRequestPermissions = ::requestSmsPermissions,
-                    onEnableNotificationAccess = { NotificationAccess.openSettings(this) }
-                )
+            val appTheme by prefs.theme.collectAsState()
+            val uiMode by prefs.uiMode.collectAsState()
+
+            TivanTheme(appTheme = appTheme) {
+                val mode = uiMode
+                if (mode == null) {
+                    OnboardingScreen(onChoose = { prefs.setUiMode(it) })
+                } else {
+                    RootScreen(
+                        uiMode = mode,
+                        prefs = prefs,
+                        permissionState = permissionState.value,
+                        notificationAccess = notificationAccess.value,
+                        onRequestPermissions = ::requestSmsPermissions,
+                        onEnableNotificationAccess = { NotificationAccess.openSettings(this) }
+                    )
+                }
             }
         }
     }
@@ -111,6 +130,8 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 private fun RootScreen(
+    uiMode: UiMode,
+    prefs: AppPreferences,
     permissionState: SmsPermissions.State,
     notificationAccess: Boolean,
     onRequestPermissions: () -> Unit,
@@ -118,8 +139,15 @@ private fun RootScreen(
     viewModel: MainViewModel = viewModel()
 ) {
     val c = Tivan
-    var tab by rememberSaveable { mutableStateOf(Tab.Outputs) }
+    val tabs = if (uiMode == UiMode.SIMPLE) SIMPLE_TABS else Tab.entries.toList()
+    var tab by rememberSaveable { mutableStateOf(tabs.first()) }
     var sheetOpen by rememberSaveable { mutableStateOf(false) }
+
+    // If switching from advanced to simple leaves the current tab hidden (e.g.
+    // Inputs or Status), fall back to the first tab that's still visible.
+    LaunchedEffect(tabs) {
+        if (tab !in tabs) tab = tabs.first()
+    }
 
     // Tabs the user visited, so the system back gesture walks back through them
     // instead of dropping straight out of the app.
@@ -128,7 +156,7 @@ private fun RootScreen(
             save = { list -> list.map { it.name } },
             restore = { saved -> saved.map { Tab.valueOf(it) }.toMutableStateList() }
         )
-    ) { mutableStateListOf(Tab.Outputs) }
+    ) { mutableStateListOf(tab) }
 
     val devices by viewModel.devices.collectAsState()
     val device by viewModel.selectedDevice.collectAsState()
@@ -189,7 +217,7 @@ private fun RootScreen(
                 }
             },
             bottomBar = {
-                BottomBar(current = tab, onSelect = ::goTo)
+                BottomBar(tabs = tabs, current = tab, simple = uiMode == UiMode.SIMPLE, onSelect = ::goTo)
             }
         ) { padding ->
             Box(
@@ -227,6 +255,7 @@ private fun RootScreen(
                                 pendingSecurity = pendingSecurity,
                                 securityArmed = status?.securityArmed,
                                 onCount = outputs.count { it.on == true },
+                                totalCount = outputs.size,
                                 antenna = status?.antenna,
                                 antennaAt = status?.antennaAt ?: 0L,
                                 temperature = status?.temperature,
@@ -241,7 +270,7 @@ private fun RootScreen(
                         Tab.Inputs -> InputsScreen(viewModel, header)
                         Tab.Security -> SecurityScreen(viewModel, header)
                         Tab.Status -> StatusScreen(viewModel, header)
-                        Tab.Settings -> SettingsScreen(viewModel, header)
+                        Tab.Settings -> SettingsScreen(viewModel, prefs, header)
                     }
                 }
             }
@@ -253,7 +282,7 @@ private fun RootScreen(
             devices = devices,
             selectedId = device?.id,
             onSelect = { viewModel.selectDevice(it) },
-            onAdd = { n, p, i -> viewModel.addDevice(n, p, i) },
+            onAdd = { n, p, i, ch -> viewModel.addDevice(n, p, i, ch) },
             onDelete = { viewModel.deleteDevice(it) },
             onDismiss = { sheetOpen = false }
         )
@@ -267,6 +296,7 @@ private fun HeroFor(
     pendingSecurity: Boolean?,
     securityArmed: Boolean?,
     onCount: Int,
+    totalCount: Int,
     antenna: String?,
     antennaAt: Long,
     temperature: String?,
@@ -317,7 +347,7 @@ private fun HeroFor(
         title = title,
         subtitle = subtitle,
         stats = listOf(
-            HeroStat("خروجی فعال", "${RelativeTime.fa(onCount)} از ۴"),
+            HeroStat("خروجی فعال", "${RelativeTime.fa(onCount)} از ${RelativeTime.fa(totalCount)}"),
             HeroStat(
                 "دزدگیر",
                 when (securityArmed) {
@@ -337,7 +367,7 @@ private fun HeroFor(
 }
 
 @Composable
-private fun BottomBar(current: Tab, onSelect: (Tab) -> Unit) {
+private fun BottomBar(tabs: List<Tab>, current: Tab, simple: Boolean, onSelect: (Tab) -> Unit) {
     val c = Tivan
     Column(
         Modifier
@@ -351,7 +381,7 @@ private fun BottomBar(current: Tab, onSelect: (Tab) -> Unit) {
                 .padding(horizontal = 8.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(2.dp)
         ) {
-            Tab.entries.forEach { t ->
+            tabs.forEach { t ->
                 val sel = t == current
                 Column(
                     Modifier
@@ -368,7 +398,7 @@ private fun BottomBar(current: Tab, onSelect: (Tab) -> Unit) {
                     Text(t.emoji, style = MaterialTheme.typography.titleMedium)
                     Spacer(Modifier.height(3.dp))
                     Text(
-                        t.label,
+                        if (simple) t.simpleLabel else t.label,
                         style = MaterialTheme.typography.labelSmall,
                         color = if (sel) c.text else c.dim2,
                         textAlign = TextAlign.Center
