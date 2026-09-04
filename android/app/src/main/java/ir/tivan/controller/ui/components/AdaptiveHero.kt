@@ -14,8 +14,13 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
+import ir.tivan.controller.ui.theme.AppTheme
 import ir.tivan.controller.ui.theme.Tivan
+import ir.tivan.controller.ui.theme.TivanLayout
 
 enum class HeroMood { Normal, Pending, Alarm }
 
@@ -73,66 +78,118 @@ fun AdaptiveHero(
         label = "heroBorder"
     )
 
-    GlassCard(modifier = modifier.fillMaxWidth(), tint = tint, borderTint = border) {
-        Column(Modifier.padding(18.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(contentAlignment = Alignment.Center) {
-                    IconTile(
-                        emoji = emoji,
-                        size = 58.dp,
-                        corner = 20.dp,
-                        tint = accent.copy(alpha = 0.16f),
-                        borderTint = accent.copy(alpha = 0.38f)
-                    )
-                    if (mood == HeroMood.Pending) PendingRing(accent)
-                }
-                Spacer(Modifier.width(14.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(title, style = MaterialTheme.typography.titleLarge, color = c.text)
-                    Text(
-                        subtitle,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = c.dim
-                    )
-                }
-            }
-
-            if (stats.isNotEmpty()) {
-                Spacer(Modifier.height(15.dp))
-                HorizontalDivider(c.stroke)
-                Spacer(Modifier.height(13.dp))
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    stats.forEach { s ->
-                        Column(
-                            Modifier.weight(1f),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
+    val statsRow: @Composable () -> Unit = {
+        if (stats.isNotEmpty()) {
+            Spacer(Modifier.height(15.dp))
+            HorizontalDivider(c.stroke)
+            Spacer(Modifier.height(13.dp))
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                stats.forEach { s ->
+                    Column(
+                        Modifier.weight(1f),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            s.label,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = c.dim2
+                        )
+                        Spacer(Modifier.height(3.dp))
+                        Text(
+                            s.value,
+                            style = MaterialTheme.typography.titleSmall,
+                            color = c.text
+                        )
+                        if (s.age != null) {
                             Text(
-                                s.label,
+                                s.age,
                                 style = MaterialTheme.typography.labelSmall,
-                                color = c.dim2
+                                color = c.dim2.copy(alpha = 0.8f)
                             )
-                            Spacer(Modifier.height(3.dp))
-                            Text(
-                                s.value,
-                                style = MaterialTheme.typography.titleSmall,
-                                color = c.text
-                            )
-                            if (s.age != null) {
-                                Text(
-                                    s.age,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = c.dim2.copy(alpha = 0.8f)
-                                )
-                            }
                         }
                     }
                 }
             }
         }
+    }
+
+    when (TivanLayout) {
+        AppTheme.OBSIDIAN ->
+            // No card — a flat block with hairlines, matching Obsidian's identity.
+            Column(modifier.fillMaxWidth()) {
+                HorizontalDivider(c.stroke)
+                Column(Modifier.padding(vertical = 16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            Modifier
+                                .size(8.dp)
+                                .clip(androidx.compose.foundation.shape.CircleShape)
+                                .background(accent)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(title, style = MaterialTheme.typography.titleLarge, color = c.text)
+                            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = c.dim)
+                        }
+                    }
+                    statsRow()
+                }
+                HorizontalDivider(c.stroke)
+            }
+
+        AppTheme.INSTRUMENT ->
+            // Bordered technical panel — no gradient fill, a status dot instead
+            // of a big icon tile.
+            Box(
+                modifier
+                    .fillMaxWidth()
+                    .clip(androidx.compose.foundation.shape.RoundedCornerShape(c.cardCorner))
+                    .border(1.dp, border, androidx.compose.foundation.shape.RoundedCornerShape(c.cardCorner))
+            ) {
+                Column(Modifier.padding(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            Modifier
+                                .size(10.dp)
+                                .clip(androidx.compose.foundation.shape.CircleShape)
+                                .background(accent)
+                        )
+                        Spacer(Modifier.width(10.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(title, style = MaterialTheme.typography.titleMedium, color = c.text)
+                            Text(subtitle, style = MaterialTheme.typography.labelSmall, color = c.dim)
+                        }
+                    }
+                    statsRow()
+                }
+            }
+
+        AppTheme.LINEN ->
+            GlassCard(modifier = modifier.fillMaxWidth(), tint = tint, borderTint = border) {
+                Column(Modifier.padding(18.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(contentAlignment = Alignment.Center) {
+                            IconTile(
+                                emoji = emoji,
+                                size = 58.dp,
+                                corner = 20.dp,
+                                tint = accent.copy(alpha = 0.16f),
+                                borderTint = accent.copy(alpha = 0.38f)
+                            )
+                            if (mood == HeroMood.Pending) PendingRing(accent)
+                        }
+                        Spacer(Modifier.width(14.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(title, style = MaterialTheme.typography.titleLarge, color = c.text)
+                            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = c.dim)
+                        }
+                    }
+                    statsRow()
+                }
+            }
     }
 }
 
