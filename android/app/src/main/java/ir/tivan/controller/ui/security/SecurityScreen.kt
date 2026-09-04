@@ -11,6 +11,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -52,10 +53,22 @@ fun SecurityScreen(viewModel: MainViewModel, header: @Composable () -> Unit) {
             Column(
                 Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 24.dp, horizontal = 18.dp),
+                    .padding(vertical = 22.dp, horizontal = 18.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                ArmDial(
+                ArmBadge(armed = armed, pending = pending)
+
+                Spacer(Modifier.height(6.dp))
+                if (armed != null && pending == null) {
+                    Text(
+                        RelativeTime.ago(status?.securityAt ?: 0L),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = c.dim2
+                    )
+                }
+
+                Spacer(Modifier.height(16.dp))
+                ArmButton(
                     armed = armed,
                     pending = pending,
                     onClick = {
@@ -63,15 +76,6 @@ fun SecurityScreen(viewModel: MainViewModel, header: @Composable () -> Unit) {
                         viewModel.setSecurity(target)
                     }
                 )
-
-                if (armed != null && pending == null) {
-                    Spacer(Modifier.height(12.dp))
-                    Text(
-                        RelativeTime.ago(status?.securityAt ?: 0L),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = c.dim2
-                    )
-                }
 
                 Spacer(Modifier.height(20.dp))
                 Text(
@@ -124,12 +128,12 @@ fun SecurityScreen(viewModel: MainViewModel, header: @Composable () -> Unit) {
 }
 
 /**
- * The arm/disarm control. Its ring is the clearest place to show that a command
- * is out but unconfirmed, so it holds an amber spinner until the controller
- * answers rather than flipping straight to "armed".
+ * Small status badge above the arm button — a ring is the clearest place to
+ * show a command is out but unconfirmed, so it spins amber until the
+ * controller answers rather than flipping straight to "armed".
  */
 @Composable
-private fun ArmDial(armed: Boolean?, pending: Boolean?, onClick: () -> Unit) {
+private fun ArmBadge(armed: Boolean?, pending: Boolean?) {
     val c = Tivan
     val accent = when {
         pending != null -> c.pending
@@ -139,65 +143,38 @@ private fun ArmDial(armed: Boolean?, pending: Boolean?, onClick: () -> Unit) {
     val fill by animateColorAsState(
         when {
             pending != null -> c.pending.copy(alpha = 0.18f)
-            armed == true -> c.alarm.copy(alpha = 0.22f)
+            armed == true -> c.alarm.copy(alpha = 0.14f)
             else -> c.glassStrong
         },
-        tween(320), label = "dialFill"
+        tween(320), label = "badgeFill"
     )
 
     Box(contentAlignment = Alignment.Center) {
         Box(
             Modifier
-                .size(184.dp)
+                .size(74.dp)
                 .clip(CircleShape)
-                .background(
-                    Brush.radialGradient(
-                        listOf(fill, fill.copy(alpha = fill.alpha * 0.35f))
-                    )
-                )
-                .border(1.dp, accent.copy(alpha = 0.45f), CircleShape)
-                .clickable(onClick = onClick),
+                .background(fill)
+                .border(2.dp, accent.copy(alpha = 0.7f), CircleShape),
             contentAlignment = Alignment.Center
         ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    when {
-                        pending != null -> "⏳"
-                        armed == true -> "🔒"
-                        else -> "🔓"
-                    },
-                    style = MaterialTheme.typography.displaySmall
-                )
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    when {
-                        pending != null -> "در انتظار تأیید"
-                        armed == true -> "فعال"
-                        armed == false -> "غیرفعال"
-                        else -> "نامشخص"
-                    },
-                    style = MaterialTheme.typography.titleMedium,
-                    color = c.text
-                )
-                Text(
-                    when {
-                        pending != null -> "پیامک ارسال شد…"
-                        armed == true -> "برای غیرفعال کردن لمس کنید"
-                        else -> "برای فعال کردن لمس کنید"
-                    },
-                    style = MaterialTheme.typography.labelSmall,
-                    color = c.dim2
-                )
-            }
+            Text(
+                when {
+                    pending != null -> "⏳"
+                    armed == true -> "🛡"
+                    else -> "🔓"
+                },
+                style = MaterialTheme.typography.headlineMedium
+            )
         }
         if (pending != null) {
-            val angle by rememberInfiniteTransition(label = "dialRing").animateFloat(
+            val angle by rememberInfiniteTransition(label = "badgeRing").animateFloat(
                 initialValue = 0f,
                 targetValue = 360f,
                 animationSpec = infiniteRepeatable(tween(1200, easing = LinearEasing)),
-                label = "dialAngle"
+                label = "badgeAngle"
             )
-            Canvas(Modifier.size(196.dp)) {
+            Canvas(Modifier.size(84.dp)) {
                 drawArc(
                     color = c.pending,
                     startAngle = angle,
@@ -208,6 +185,42 @@ private fun ArmDial(armed: Boolean?, pending: Boolean?, onClick: () -> Unit) {
                     style = Stroke(width = 3.dp.toPx())
                 )
             }
+        }
+    }
+    Spacer(Modifier.height(14.dp))
+    Text(
+        when {
+            pending != null -> "در انتظار تأیید"
+            armed == true -> "فعال"
+            armed == false -> "غیرفعال"
+            else -> "نامشخص"
+        },
+        style = MaterialTheme.typography.titleMedium,
+        color = c.text
+    )
+}
+
+@Composable
+private fun ArmButton(armed: Boolean?, pending: Boolean?, onClick: () -> Unit) {
+    val c = Tivan
+    val isArmed = armed == true
+    Surface(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
+        color = if (isArmed) c.on else c.alarm,
+        enabled = pending == null
+    ) {
+        Box(Modifier.padding(vertical = 14.dp), contentAlignment = Alignment.Center) {
+            Text(
+                when {
+                    pending != null -> "در حال ارسال…"
+                    isArmed -> "غیرفعال کردن دزدگیر"
+                    else -> "فعال کردن دزدگیر"
+                },
+                style = MaterialTheme.typography.titleSmall,
+                color = androidx.compose.ui.graphics.Color.White
+            )
         }
     }
 }

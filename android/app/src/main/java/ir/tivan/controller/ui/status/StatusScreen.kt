@@ -1,5 +1,6 @@
 package ir.tivan.controller.ui.status
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -35,36 +36,35 @@ fun StatusScreen(viewModel: MainViewModel, header: @Composable () -> Unit) {
             .padding(horizontal = 16.dp)
     ) {
         header()
-        SectionHeader("وضعیت دستگاه", "آخرین داده‌های ذخیره‌شده")
+        SectionHeader("وضعیت و گزارش", "آخرین گزارش‌گیری از دستگاه")
 
-        // Every cached fact carries its own age, because these arrive in
-        // separate SMS replies and can be hours apart.
-        CachedRow(
-            emoji = "📶",
-            title = "آنتن‌دهی",
-            command = "ANTEN",
-            value = st?.antenna ?: "—",
-            at = st?.antennaAt ?: 0L,
-            onRefresh = { viewModel.sendCommand("ANTEN") }
-        )
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            StatTile(Modifier.weight(1f), "آنتن‌دهی", st?.antenna ?: "—", good = st?.antenna != null)
+            StatTile(Modifier.weight(1f), "دمای محیط", st?.temperature?.let { "$it°C" } ?: "—")
+        }
+        Spacer(Modifier.height(10.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            StatTile(
+                Modifier.weight(1f), "گزارش کامل",
+                if ((st?.lastReportAt ?: 0L) > 0) "دریافت شده" else "—"
+            )
+            StatTile(
+                Modifier.weight(1f), "آخرین ارتباط",
+                if ((st?.lastContactAt ?: 0L) > 0) RelativeTime.ago(st!!.lastContactAt) else "—"
+            )
+        }
+
+        SectionHeader("وضعیت خروجی/ورودی لحظه‌ای")
+        IoStrip(outputs = outputs)
+
+        Spacer(Modifier.height(14.dp))
+        ActionRow("🔄", "بروزرسانی گزارش", "ارسال REPORT به دستگاه") {
+            viewModel.sendCommand("REPORT")
+        }
         Spacer(Modifier.height(9.dp))
-        CachedRow(
-            emoji = "🌡",
-            title = "دمای محیط",
-            command = "?temp",
-            value = st?.temperature?.let { "$it°C" } ?: "—",
-            at = st?.temperatureAt ?: 0L,
-            onRefresh = { viewModel.sendCommand("?temp") }
-        )
-        Spacer(Modifier.height(9.dp))
-        CachedRow(
-            emoji = "📋",
-            title = "گزارش کامل",
-            command = "REPORT",
-            value = if ((st?.lastReportAt ?: 0L) > 0) "دریافت شده" else "—",
-            at = st?.lastReportAt ?: 0L,
-            onRefresh = { viewModel.sendCommand("REPORT") }
-        )
+        ActionRow("📶", "تست آنتن", "ارسال ANTEN") {
+            viewModel.sendCommand("ANTEN")
+        }
 
         SectionHeader("خروجی‌ها", "طبق آخرین گزارش")
         outputs.forEach { o ->
@@ -115,30 +115,47 @@ fun StatusScreen(viewModel: MainViewModel, header: @Composable () -> Unit) {
 }
 
 @Composable
-private fun CachedRow(
-    emoji: String,
-    title: String,
-    command: String,
-    value: String,
-    at: Long,
-    onRefresh: () -> Unit
-) {
+private fun StatTile(modifier: Modifier = Modifier, label: String, value: String, good: Boolean = false) {
     val c = Tivan
-    val stale = RelativeTime.isStale(at)
-    GlassCard(Modifier.fillMaxWidth(), onClick = onRefresh) {
-        Row(Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconTile(emoji, size = 42.dp)
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.titleSmall, color = c.text)
-                Text(command, style = MaterialTheme.typography.labelSmall, color = c.dim2)
-            }
-            ValueWithAge(
-                value = value,
-                age = RelativeTime.ago(at),
-                stale = stale,
-                align = Alignment.End
+    GlassCard(modifier.fillMaxWidth(), corner = 14.dp) {
+        Column(Modifier.padding(14.dp)) {
+            Text(label, style = MaterialTheme.typography.labelSmall, color = c.dim2)
+            Spacer(Modifier.height(6.dp))
+            Text(
+                value,
+                style = MaterialTheme.typography.titleMedium,
+                color = if (good) c.on else c.text
             )
+        }
+    }
+}
+
+@Composable
+private fun IoStrip(outputs: List<ir.tivan.controller.ui.OutputUi>) {
+    val c = Tivan
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        outputs.forEachIndexed { i, o ->
+            GlassCard(Modifier.weight(1f), corner = 10.dp) {
+                Column(
+                    Modifier.padding(vertical = 10.dp, horizontal = 4.dp).fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        "OUT${i + 1}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = c.dim2
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    Box(
+                        Modifier
+                            .size(12.dp)
+                            .background(
+                                if (o.on == true) c.on else c.dim2.copy(alpha = 0.35f),
+                                androidx.compose.foundation.shape.CircleShape
+                            )
+                    )
+                }
+            }
         }
     }
 }

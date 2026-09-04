@@ -65,21 +65,29 @@ fun OutputsScreen(viewModel: MainViewModel, header: @Composable () -> Unit) {
             if (rowStart + 2 < outputs.size) Spacer(Modifier.height(11.dp))
         }
 
-        SectionHeader("میان‌بر")
-        ActionRow(
-            "⚡", "خاموش کردن همه خروجی‌ها",
-            "ارسال ${outputs.indices.joinToString(" و ") { "${it + 1}0" }}"
-        ) {
-            outputs.indices.forEach { viewModel.toggleOutput(it, false) }
+        SectionHeader("همه خروجی‌ها")
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            TinyButton(
+                "روشن کردن همه",
+                Modifier.weight(1f),
+                onClick = { outputs.indices.forEach { viewModel.toggleOutput(it, true) } },
+                emphasis = c.on
+            )
+            TinyButton(
+                "خاموش کردن همه",
+                Modifier.weight(1f),
+                onClick = { outputs.indices.forEach { viewModel.toggleOutput(it, false) } },
+                emphasis = c.alarm
+            )
         }
-        Spacer(Modifier.height(9.dp))
-        ActionRow("🔄", "درخواست گزارش وضعیت", "ارسال REPORT به دستگاه") {
-            viewModel.sendCommand("REPORT")
-        }
-        Spacer(Modifier.height(9.dp))
-        ActionRow("📶", "استعلام آنتن‌دهی", "ارسال ANTEN") {
-            viewModel.sendCommand("ANTEN")
-        }
+        Spacer(Modifier.height(14.dp))
+        Text(
+            "دستور از طریق پیامک به دستگاه ارسال می‌شود",
+            style = MaterialTheme.typography.labelSmall,
+            color = c.dim2,
+            modifier = Modifier.fillMaxWidth(),
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+        )
 
         Spacer(Modifier.height(24.dp))
     }
@@ -140,44 +148,36 @@ private fun OutputTile(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.Top
             ) {
-                IconTile(
-                    state.icon,
-                    size = 40.dp,
-                    corner = 13.dp,
-                    tint = if (state.on == true || state.pending) accent.copy(alpha = 0.18f) else c.glassStrong,
-                    borderTint = if (state.on == true || state.pending) accent.copy(alpha = 0.4f) else c.stroke
+                Column {
+                    Text(
+                        state.name,
+                        style = MaterialTheme.typography.titleSmall,
+                        color = c.text,
+                        maxLines = 1
+                    )
+                    Text(
+                        if (state.on != null && !state.pending) RelativeTime.ago(state.updatedAt) else "خروجی",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = c.dim2
+                    )
+                }
+                StatusPill(
+                    when {
+                        state.pending -> "در انتظار"
+                        state.on == true -> "روشن"
+                        state.on == false -> "خاموش"
+                        else -> "نامشخص"
+                    },
+                    accent
                 )
-                MiniSwitch(on = state.on == true, pending = state.pending, accent = accent)
             }
             Spacer(Modifier.height(12.dp))
-            Text(
-                state.name,
-                style = MaterialTheme.typography.titleSmall,
-                color = c.text,
-                maxLines = 1
-            )
-            Text(
-                when {
-                    state.pending -> "منتظر تأیید دستگاه…"
-                    state.on == true -> "روشن"
-                    state.on == false -> "خاموش"
-                    else -> "وضعیت نامشخص"
-                },
-                style = MaterialTheme.typography.labelSmall,
-                color = accent
-            )
-            if (state.on != null && !state.pending) {
-                Text(
-                    RelativeTime.ago(state.updatedAt),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = c.dim2.copy(alpha = 0.8f)
-                )
-            }
+            MiniSwitch(on = state.on == true, pending = state.pending, accent = accent)
 
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(12.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                TinyButton("⏱ تایمر", Modifier.weight(1f), onTimer)
-                TinyButton("✎ نام", Modifier.weight(1f), onRename)
+                TinyButton("⏱ تایمر", Modifier.weight(1f), onClick = onTimer)
+                TinyButton("✎ نام", Modifier.weight(1f), onClick = onRename)
             }
         }
     }
@@ -215,7 +215,12 @@ private fun MiniSwitch(on: Boolean, pending: Boolean, accent: androidx.compose.u
 }
 
 @Composable
-private fun TinyButton(text: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+private fun TinyButton(
+    text: String,
+    modifier: Modifier = Modifier,
+    emphasis: androidx.compose.ui.graphics.Color? = null,
+    onClick: () -> Unit
+) {
     val c = Tivan
     Surface(
         onClick = onClick,
@@ -224,8 +229,8 @@ private fun TinyButton(text: String, modifier: Modifier = Modifier, onClick: () 
         color = c.glassStrong,
         border = androidx.compose.foundation.BorderStroke(1.dp, c.stroke)
     ) {
-        Box(Modifier.padding(vertical = 6.dp), contentAlignment = Alignment.Center) {
-            Text(text, style = MaterialTheme.typography.labelSmall, color = c.dim)
+        Box(Modifier.padding(vertical = 10.dp), contentAlignment = Alignment.Center) {
+            Text(text, style = MaterialTheme.typography.labelSmall, color = emphasis ?: c.dim)
         }
     }
 }
