@@ -21,9 +21,10 @@ class TivanApp : Application() {
     val reportBus = MutableSharedFlow<Pair<Long, String>>(extraBufferCapacity = 16)
 
     // One message can arrive twice: once as SMS_RECEIVED and once through the
-    // SMS app's notification. Keyed on the body alone, since that is the only
-    // field both paths agree on — the notification carries a contact name where
-    // the broadcast carries a number.
+    // SMS app's notification. Keyed on deviceId+body rather than body alone —
+    // two different paired devices can legitimately send the identical text
+    // (e.g. two un-renamed controllers both replying "OUT1 OFF"), and a
+    // body-only key would drop the second one as a false duplicate.
     private val recentMutex = Mutex()
     private val recent = LinkedHashMap<String, Long>()
 
@@ -35,7 +36,6 @@ class TivanApp : Application() {
      */
     suspend fun onIncomingSms(sender: String, body: String) {
         if (body.isBlank()) return
-        if (!claimMessage(body)) return
 
         val suffix = sender.filter { it.isDigit() }.takeLast(10)
         if (suffix.isEmpty()) return
@@ -43,6 +43,7 @@ class TivanApp : Application() {
             it.phoneNumber.filter { c -> c.isDigit() }.takeLast(10) == suffix
         } ?: return
 
+        if (!claimMessage("${device.id}|$body")) return
         repository.addLog(device.id, LogDirection.IN, body)
         reportBus.tryEmit(device.id to body)
     }
@@ -60,7 +61,6 @@ class TivanApp : Application() {
      */
     suspend fun onIncomingNotification(title: String, body: String) {
         if (body.isBlank()) return
-        if (!claimMessage(body)) return
 
         val devices = allDevicesSnapshot()
         if (devices.isEmpty()) return
@@ -74,6 +74,7 @@ class TivanApp : Application() {
             StatusParser.parse(device, body, DeviceStatus.empty(device.id)).recognized
         } ?: return
 
+        if (!claimMessage("${device.id}|$body")) return
         repository.addLog(device.id, LogDirection.IN, body)
         reportBus.tryEmit(device.id to body)
     }
