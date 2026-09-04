@@ -1,6 +1,7 @@
 package ir.tivan.controller.ui.status
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -18,12 +19,15 @@ import ir.tivan.controller.ui.components.*
 import ir.tivan.controller.ui.outputs.ActionRow
 import ir.tivan.controller.ui.security.EmptyHint
 import ir.tivan.controller.ui.security.LogRow
+import ir.tivan.controller.ui.theme.AppTheme
 import ir.tivan.controller.ui.theme.Tivan
+import ir.tivan.controller.ui.theme.TivanLayout
 import ir.tivan.controller.util.RelativeTime
 
 @Composable
 fun StatusScreen(viewModel: MainViewModel, header: @Composable () -> Unit) {
     val c = Tivan
+    val flat = TivanLayout == AppTheme.OBSIDIAN
     val status by viewModel.status.collectAsState()
     val outputs by viewModel.outputs.collectAsState()
     val logs by viewModel.logs.collectAsState()
@@ -39,23 +43,25 @@ fun StatusScreen(viewModel: MainViewModel, header: @Composable () -> Unit) {
         SectionHeader("وضعیت و گزارش", "آخرین گزارش‌گیری از دستگاه")
 
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            StatTile(Modifier.weight(1f), "آنتن‌دهی", st?.antenna ?: "—", good = st?.antenna != null)
-            StatTile(Modifier.weight(1f), "دمای محیط", st?.temperature?.let { "$it°C" } ?: "—")
+            StatTile(Modifier.weight(1f), "آنتن‌دهی", st?.antenna ?: "—", good = st?.antenna != null, flat = flat)
+            StatTile(Modifier.weight(1f), "دمای محیط", st?.temperature?.let { "$it°C" } ?: "—", flat = flat)
         }
         Spacer(Modifier.height(10.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             StatTile(
                 Modifier.weight(1f), "گزارش کامل",
-                if ((st?.lastReportAt ?: 0L) > 0) "دریافت شده" else "—"
+                if ((st?.lastReportAt ?: 0L) > 0) "دریافت شده" else "—",
+                flat = flat
             )
             StatTile(
                 Modifier.weight(1f), "آخرین ارتباط",
-                if ((st?.lastContactAt ?: 0L) > 0) RelativeTime.ago(st!!.lastContactAt) else "—"
+                if ((st?.lastContactAt ?: 0L) > 0) RelativeTime.ago(st!!.lastContactAt) else "—",
+                flat = flat
             )
         }
 
         SectionHeader("وضعیت خروجی/ورودی لحظه‌ای")
-        IoStrip(outputs = outputs)
+        IoStrip(outputs = outputs, flat = flat)
 
         Spacer(Modifier.height(14.dp))
         ActionRow("🔄", "بروزرسانی گزارش", "ارسال REPORT به دستگاه") {
@@ -67,34 +73,45 @@ fun StatusScreen(viewModel: MainViewModel, header: @Composable () -> Unit) {
         }
 
         SectionHeader("خروجی‌ها", "طبق آخرین گزارش")
-        outputs.forEach { o ->
-            GlassCard(Modifier.fillMaxWidth(), corner = 16.dp) {
-                Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    IconTile(o.icon, size = 38.dp, corner = 12.dp)
-                    Spacer(Modifier.width(11.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(o.name, style = MaterialTheme.typography.titleSmall, color = c.text)
-                        Text(
-                            RelativeTime.ago(o.updatedAt),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = c.dim2
-                        )
-                    }
-                    StatusPill(
-                        when (o.on) {
-                            true -> "روشن"
-                            false -> "خاموش"
-                            null -> "نامشخص"
-                        },
-                        when (o.on) {
-                            true -> c.on
-                            false -> c.dim2
-                            null -> c.dim2
-                        }
+        @Composable
+        fun outputRowContent(o: ir.tivan.controller.ui.OutputUi) {
+            Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                IconTile(o.icon, size = 38.dp, corner = 12.dp)
+                Spacer(Modifier.width(11.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(o.name, style = MaterialTheme.typography.titleSmall, color = c.text)
+                    Text(
+                        RelativeTime.ago(o.updatedAt),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = c.dim2
                     )
                 }
+                StatusPill(
+                    when (o.on) {
+                        true -> "روشن"
+                        false -> "خاموش"
+                        null -> "نامشخص"
+                    },
+                    when (o.on) {
+                        true -> c.on
+                        false -> c.dim2
+                        null -> c.dim2
+                    }
+                )
             }
-            Spacer(Modifier.height(8.dp))
+        }
+        if (flat) {
+            Column {
+                outputs.forEachIndexed { i, o ->
+                    outputRowContent(o)
+                    if (i < outputs.lastIndex) HorizontalDivider(c.stroke)
+                }
+            }
+        } else {
+            outputs.forEach { o ->
+                GlassCard(Modifier.fillMaxWidth(), corner = 16.dp) { outputRowContent(o) }
+                Spacer(Modifier.height(8.dp))
+            }
         }
 
         SectionHeader("تاریخچه پیامک", "${RelativeTime.fa(logs.size)} مورد")
@@ -115,9 +132,15 @@ fun StatusScreen(viewModel: MainViewModel, header: @Composable () -> Unit) {
 }
 
 @Composable
-private fun StatTile(modifier: Modifier = Modifier, label: String, value: String, good: Boolean = false) {
+private fun StatTile(
+    modifier: Modifier = Modifier,
+    label: String,
+    value: String,
+    good: Boolean = false,
+    flat: Boolean = false
+) {
     val c = Tivan
-    GlassCard(modifier.fillMaxWidth(), corner = 14.dp) {
+    val content: @Composable () -> Unit = {
         Column(Modifier.padding(14.dp)) {
             Text(label, style = MaterialTheme.typography.labelSmall, color = c.dim2)
             Spacer(Modifier.height(6.dp))
@@ -128,14 +151,23 @@ private fun StatTile(modifier: Modifier = Modifier, label: String, value: String
             )
         }
     }
+    if (flat) {
+        Box(
+            modifier
+                .fillMaxWidth()
+                .border(1.dp, c.stroke, androidx.compose.foundation.shape.RoundedCornerShape(c.cardCorner))
+        ) { content() }
+    } else {
+        GlassCard(modifier.fillMaxWidth(), corner = 14.dp, content = { content() })
+    }
 }
 
 @Composable
-private fun IoStrip(outputs: List<ir.tivan.controller.ui.OutputUi>) {
+private fun IoStrip(outputs: List<ir.tivan.controller.ui.OutputUi>, flat: Boolean = false) {
     val c = Tivan
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         outputs.forEachIndexed { i, o ->
-            GlassCard(Modifier.weight(1f), corner = 10.dp) {
+            val cellContent: @Composable () -> Unit = {
                 Column(
                     Modifier.padding(vertical = 10.dp, horizontal = 4.dp).fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally
@@ -155,6 +187,15 @@ private fun IoStrip(outputs: List<ir.tivan.controller.ui.OutputUi>) {
                             )
                     )
                 }
+            }
+            if (flat) {
+                Box(
+                    Modifier
+                        .weight(1f)
+                        .border(1.dp, c.stroke, androidx.compose.foundation.shape.RoundedCornerShape(c.cardCorner))
+                ) { cellContent() }
+            } else {
+                GlassCard(Modifier.weight(1f), corner = 10.dp, content = { cellContent() })
             }
         }
     }

@@ -5,6 +5,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -20,16 +21,24 @@ import ir.tivan.controller.data.Device
 import ir.tivan.controller.ui.MainViewModel
 import ir.tivan.controller.ui.OutputUi
 import ir.tivan.controller.ui.components.*
+import ir.tivan.controller.ui.theme.AppTheme
 import ir.tivan.controller.ui.theme.Tivan
+import ir.tivan.controller.ui.theme.TivanLayout
 import ir.tivan.controller.util.RelativeTime
 
 @Composable
 fun OutputsScreen(viewModel: MainViewModel, header: @Composable () -> Unit) {
     val c = Tivan
+    val layout = TivanLayout
     val outputs by viewModel.outputs.collectAsState()
     val device by viewModel.selectedDevice.collectAsState()
     var renaming by remember { mutableStateOf<Int?>(null) }
     var timerFor by remember { mutableStateOf<Int?>(null) }
+
+    val onToggle: (Int) -> Unit = { i ->
+        val target = outputs[i].pendingTarget ?: (outputs[i].on != true)
+        viewModel.toggleOutput(i, target)
+    }
 
     // One scroll container for the whole tab. Every screen does this — the old
     // build nested a fixed-height grid inside a static Column, so anything past
@@ -44,25 +53,55 @@ fun OutputsScreen(viewModel: MainViewModel, header: @Composable () -> Unit) {
 
         SectionHeader("خروجی‌ها", "لمس برای روشن یا خاموش")
 
-        // 2-per-row — a LazyVerticalGrid inside a scrolling column needs a hard
-        // height, and up to 8 items never need lazy layout anyway.
-        for (rowStart in outputs.indices step 2) {
-            Row(horizontalArrangement = Arrangement.spacedBy(11.dp)) {
-                for (i in rowStart until minOf(rowStart + 2, outputs.size)) {
-                    OutputTile(
-                        state = outputs[i],
-                        modifier = Modifier.weight(1f),
-                        onToggle = {
-                            val target = outputs[i].pendingTarget ?: (outputs[i].on != true)
-                            viewModel.toggleOutput(i, target)
-                        },
-                        onRename = { renaming = i },
-                        onTimer = { timerFor = i }
-                    )
+        when (layout) {
+            AppTheme.LINEN ->
+                // 2-per-row — a LazyVerticalGrid inside a scrolling column needs a
+                // hard height, and up to 8 items never need lazy layout anyway.
+                for (rowStart in outputs.indices step 2) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(11.dp)) {
+                        for (i in rowStart until minOf(rowStart + 2, outputs.size)) {
+                            OutputTile(
+                                state = outputs[i],
+                                modifier = Modifier.weight(1f),
+                                onToggle = { onToggle(i) },
+                                onRename = { renaming = i },
+                                onTimer = { timerFor = i }
+                            )
+                        }
+                        if (outputs.size - rowStart == 1) Spacer(Modifier.weight(1f))
+                    }
+                    if (rowStart + 2 < outputs.size) Spacer(Modifier.height(11.dp))
                 }
-                if (outputs.size - rowStart == 1) Spacer(Modifier.weight(1f))
-            }
-            if (rowStart + 2 < outputs.size) Spacer(Modifier.height(11.dp))
+
+            AppTheme.OBSIDIAN ->
+                // Borderless hairline list — no cards, matching Obsidian's flat identity.
+                Column {
+                    outputs.forEachIndexed { i, o ->
+                        ObsidianOutputRow(
+                            state = o,
+                            onToggle = { onToggle(i) },
+                            onRename = { renaming = i },
+                            onTimer = { timerFor = i }
+                        )
+                        if (i < outputs.lastIndex) {
+                            HorizontalDivider(c.stroke)
+                        }
+                    }
+                }
+
+            AppTheme.INSTRUMENT ->
+                // Dense single-column technical rows.
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    outputs.forEachIndexed { i, o ->
+                        InstrumentOutputRow(
+                            index = i,
+                            state = o,
+                            onToggle = { onToggle(i) },
+                            onRename = { renaming = i },
+                            onTimer = { timerFor = i }
+                        )
+                    }
+                }
         }
 
         SectionHeader("همه خروجی‌ها")
@@ -179,6 +218,111 @@ private fun OutputTile(
                 TinyButton("⏱ تایمر", Modifier.weight(1f), onClick = onTimer)
                 TinyButton("✎ نام", Modifier.weight(1f), onClick = onRename)
             }
+        }
+    }
+}
+
+@Composable
+private fun ObsidianOutputRow(
+    state: OutputUi,
+    onToggle: () -> Unit,
+    onRename: () -> Unit,
+    onTimer: () -> Unit
+) {
+    val c = Tivan
+    val accent = when {
+        state.pending -> c.pending
+        state.on == true -> c.on
+        else -> c.dim2
+    }
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onToggle)
+            .padding(vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(state.name, style = MaterialTheme.typography.titleSmall, color = c.text, maxLines = 1)
+            Text(
+                when {
+                    state.pending -> "منتظر تأیید…"
+                    state.on == true -> "روشن"
+                    state.on == false -> "خاموش"
+                    else -> "نامشخص"
+                },
+                style = MaterialTheme.typography.labelSmall,
+                color = accent
+            )
+        }
+        Text(
+            "⏱",
+            modifier = Modifier
+                .clip(CircleShape)
+                .clickable(onClick = onTimer)
+                .padding(8.dp),
+            color = c.dim2
+        )
+        Text(
+            "✎",
+            modifier = Modifier
+                .clip(CircleShape)
+                .clickable(onClick = onRename)
+                .padding(8.dp),
+            color = c.dim2
+        )
+        Spacer(Modifier.width(4.dp))
+        MiniSwitch(on = state.on == true, pending = state.pending, accent = accent)
+    }
+}
+
+@Composable
+private fun InstrumentOutputRow(
+    index: Int,
+    state: OutputUi,
+    onToggle: () -> Unit,
+    onRename: () -> Unit,
+    onTimer: () -> Unit
+) {
+    val c = Tivan
+    val accent = when {
+        state.pending -> c.pending
+        state.on == true -> c.on
+        else -> c.dim2
+    }
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(c.cardCorner))
+            .background(c.glass)
+            .border(1.dp, c.stroke, RoundedCornerShape(c.cardCorner))
+            .clickable(onClick = onToggle)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            "OUT${index + 1}",
+            style = MaterialTheme.typography.labelSmall,
+            color = c.dim2,
+            modifier = Modifier.width(48.dp)
+        )
+        Text(
+            state.name,
+            style = MaterialTheme.typography.titleSmall,
+            color = c.text,
+            maxLines = 1,
+            modifier = Modifier.weight(1f)
+        )
+        Box(
+            Modifier
+                .size(8.dp)
+                .clip(CircleShape)
+                .background(accent)
+        )
+        Spacer(Modifier.width(10.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            TinyButton("⏱", onClick = onTimer)
+            TinyButton("✎", onClick = onRename)
         }
     }
 }

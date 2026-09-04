@@ -26,7 +26,9 @@ import ir.tivan.controller.data.LogDirection
 import ir.tivan.controller.ui.MainViewModel
 import ir.tivan.controller.ui.components.*
 import ir.tivan.controller.ui.inputs.SegmentButton
+import ir.tivan.controller.ui.theme.AppTheme
 import ir.tivan.controller.ui.theme.Tivan
+import ir.tivan.controller.ui.theme.TivanLayout
 import ir.tivan.controller.util.RelativeTime
 
 @Composable
@@ -39,6 +41,61 @@ fun SecurityScreen(viewModel: MainViewModel, header: @Composable () -> Unit) {
 
     val armed = status?.securityArmed
     val zones = device?.securityZones ?: 2
+    val layout = TivanLayout
+
+    val panelContent: @Composable ColumnScope.() -> Unit = {
+        ArmBadge(armed = armed, pending = pending, square = layout == AppTheme.INSTRUMENT)
+
+        Spacer(Modifier.height(6.dp))
+        if (armed != null && pending == null) {
+            Text(
+                RelativeTime.ago(status?.securityAt ?: 0L),
+                style = MaterialTheme.typography.labelSmall,
+                color = c.dim2
+            )
+        }
+
+        Spacer(Modifier.height(16.dp))
+        ArmButton(
+            armed = armed,
+            pending = pending,
+            onClick = {
+                val target = pending ?: (armed != true)
+                viewModel.setSecurity(target)
+            }
+        )
+
+        Spacer(Modifier.height(20.dp))
+        Text(
+            "تعداد زون",
+            style = MaterialTheme.typography.labelSmall,
+            color = c.dim
+        )
+        Spacer(Modifier.height(8.dp))
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            listOf("غیرفعال" to 0, "تک زون" to 1, "دو زون" to 2).forEach { (label, z) ->
+                SegmentButton(
+                    text = label,
+                    selected = zones == z,
+                    modifier = Modifier.weight(1f),
+                    onClick = { viewModel.setSecurityZones(z) }
+                )
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        Text(
+            when (zones) {
+                0 -> "دزدگیر خاموش است"
+                1 -> "فقط ورودی ۱ به‌عنوان زون دزدگیر عمل می‌کند"
+                else -> "ورودی ۱ و ۲ به‌عنوان زون دزدگیر عمل می‌کنند"
+            },
+            style = MaterialTheme.typography.labelSmall,
+            color = c.dim2
+        )
+    }
 
     Column(
         Modifier
@@ -49,63 +106,26 @@ fun SecurityScreen(viewModel: MainViewModel, header: @Composable () -> Unit) {
         header()
         SectionHeader("دزدگیر", "زون‌ها و آژیر")
 
-        GlassCard(Modifier.fillMaxWidth()) {
+        if (layout == AppTheme.OBSIDIAN) {
+            // No cards in Obsidian — a flat, borderless block with hairlines
+            // above and below instead.
+            HorizontalDivider(c.stroke)
             Column(
                 Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 22.dp, horizontal = 18.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                ArmBadge(armed = armed, pending = pending)
-
-                Spacer(Modifier.height(6.dp))
-                if (armed != null && pending == null) {
-                    Text(
-                        RelativeTime.ago(status?.securityAt ?: 0L),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = c.dim2
-                    )
-                }
-
-                Spacer(Modifier.height(16.dp))
-                ArmButton(
-                    armed = armed,
-                    pending = pending,
-                    onClick = {
-                        val target = pending ?: (armed != true)
-                        viewModel.setSecurity(target)
-                    }
-                )
-
-                Spacer(Modifier.height(20.dp))
-                Text(
-                    "تعداد زون",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = c.dim
-                )
-                Spacer(Modifier.height(8.dp))
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    listOf("غیرفعال" to 0, "تک زون" to 1, "دو زون" to 2).forEach { (label, z) ->
-                        SegmentButton(
-                            text = label,
-                            selected = zones == z,
-                            modifier = Modifier.weight(1f),
-                            onClick = { viewModel.setSecurityZones(z) }
-                        )
-                    }
-                }
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    when (zones) {
-                        0 -> "دزدگیر خاموش است"
-                        1 -> "فقط ورودی ۱ به‌عنوان زون دزدگیر عمل می‌کند"
-                        else -> "ورودی ۱ و ۲ به‌عنوان زون دزدگیر عمل می‌کنند"
-                    },
-                    style = MaterialTheme.typography.labelSmall,
-                    color = c.dim2
+                    .padding(vertical = 22.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                content = panelContent
+            )
+            HorizontalDivider(c.stroke)
+        } else {
+            GlassCard(Modifier.fillMaxWidth()) {
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 22.dp, horizontal = 18.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    content = panelContent
                 )
             }
         }
@@ -133,7 +153,7 @@ fun SecurityScreen(viewModel: MainViewModel, header: @Composable () -> Unit) {
  * controller answers rather than flipping straight to "armed".
  */
 @Composable
-private fun ArmBadge(armed: Boolean?, pending: Boolean?) {
+private fun ArmBadge(armed: Boolean?, pending: Boolean?, square: Boolean = false) {
     val c = Tivan
     val accent = when {
         pending != null -> c.pending
@@ -148,14 +168,15 @@ private fun ArmBadge(armed: Boolean?, pending: Boolean?) {
         },
         tween(320), label = "badgeFill"
     )
+    val shape = if (square) androidx.compose.foundation.shape.RoundedCornerShape(4.dp) else CircleShape
 
     Box(contentAlignment = Alignment.Center) {
         Box(
             Modifier
                 .size(74.dp)
-                .clip(CircleShape)
+                .clip(shape)
                 .background(fill)
-                .border(2.dp, accent.copy(alpha = 0.7f), CircleShape),
+                .border(2.dp, accent.copy(alpha = 0.7f), shape),
             contentAlignment = Alignment.Center
         ) {
             Text(

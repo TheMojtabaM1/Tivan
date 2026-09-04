@@ -104,9 +104,16 @@ fun tokensFor(theme: AppTheme): TivanColors = when (theme) {
 
 val LocalTivanColors = staticCompositionLocalOf { LinenTokens }
 
+/** Which theme is active — screens read this to switch their whole layout shape, not just colors. */
+val LocalAppTheme = staticCompositionLocalOf { AppTheme.LINEN }
+
 /** Shorthand: `Tivan.on`, `Tivan.glass`, … inside composables. */
 val Tivan: TivanColors
     @Composable @ReadOnlyComposable get() = LocalTivanColors.current
+
+/** Shorthand: `TivanLayout` inside composables — branch on this to pick a screen's layout shape. */
+val TivanLayout: AppTheme
+    @Composable @ReadOnlyComposable get() = LocalAppTheme.current
 
 private fun materialScheme(c: TivanColors) = if (c.dark) {
     darkColorScheme(
@@ -144,7 +151,7 @@ fun TivanTheme(
     content: @Composable () -> Unit
 ) {
     val tokens = tokensFor(appTheme)
-    CompositionLocalProvider(LocalTivanColors provides tokens) {
+    CompositionLocalProvider(LocalTivanColors provides tokens, LocalAppTheme provides appTheme) {
         MaterialTheme(
             colorScheme = materialScheme(tokens),
             typography = TivanTypography,
