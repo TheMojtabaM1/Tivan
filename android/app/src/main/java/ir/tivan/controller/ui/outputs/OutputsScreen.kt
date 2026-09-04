@@ -468,7 +468,7 @@ fun RenameDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = { onConfirm(name, icon, displayName) }) { Text("ذخیره و ارسال") }
+            TextButton(onClick = { onConfirm(name, icon, displayName) }) { Text("ذخیره") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("انصراف") } }
     )

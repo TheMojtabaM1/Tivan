@@ -71,11 +71,17 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun setDisplayName(deviceId: Long, output: Boolean, index: Int, name: String) {
         val key = displayKey(deviceId, output, index)
         val clean = name.trim()
+        val changed = _displayNames.value[key] != clean.ifBlank { null }
         displayNamePrefs.edit {
             if (clean.isBlank()) remove(key) else putString(key, clean)
         }
         _displayNames.update { m ->
             if (clean.isBlank()) m - key else m + (key to clean)
+        }
+        if (changed) {
+            viewModelScope.launch {
+                emitToast(if (clean.isBlank()) "نام نمایشی حذف شد" else "نام نمایشی ذخیره شد")
+            }
         }
     }
 
@@ -318,6 +324,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      */
     fun renameOutput(index: Int, name: String, icon: String) {
         val clean = name.take(14).trim()
+        val before = selectedDevice.value?.outputName(index)
         updateDevice { d ->
             d.copy(
                 outputNames = d.outputNames.padTo(d.channelCount) { "OUT${it + 1}" }
@@ -327,11 +334,16 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 }.replaceAt(index, icon)
             )
         }
-        if (clean.isNotBlank()) sendCommand("NAMEOUT${index + 1}:$clean", "نام خروجی ${index + 1} تغییر کرد")
+        // Only bother the device with an SMS when its own name actually changed —
+        // a display-name-only edit shouldn't resend an unchanged NAMEOUTx.
+        if (clean.isNotBlank() && clean != before) {
+            sendCommand("NAMEOUT${index + 1}:$clean", "نام خروجی ${index + 1} تغییر کرد")
+        }
     }
 
     fun setInputMessage(index: Int, message: String, icon: String) {
         val clean = message.take(24).trim()
+        val before = selectedDevice.value?.inputMessage(index)
         updateDevice { d ->
             d.copy(
                 inputMessages = d.inputMessages.padTo(d.channelCount) { "In${it + 1} Triggered" }
@@ -341,7 +353,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 }.replaceAt(index, icon)
             )
         }
-        if (clean.isNotBlank()) sendCommand("PAYAMEIN${index + 1}:$clean", "پیام ورودی ${index + 1} تغییر کرد")
+        if (clean.isNotBlank() && clean != before) {
+            sendCommand("PAYAMEIN${index + 1}:$clean", "پیام ورودی ${index + 1} تغییر کرد")
+        }
     }
 
     fun setInputMode(index: Int, mode: Int) {
