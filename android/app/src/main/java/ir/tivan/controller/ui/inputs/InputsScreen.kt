@@ -81,12 +81,18 @@ fun InputsScreen(viewModel: MainViewModel, header: @Composable () -> Unit) {
     editing?.let { index ->
         RenameDialog(
             title = "پیام و آیکون ورودی ${RelativeTime.fa(index + 1)}",
-            hint = "متن باید انگلیسی و حداکثر ۲۴ کاراکتر باشد — دستگاه همین را هنگام تحریک می‌فرستد",
+            hint = "متن روی دستگاه باید انگلیسی و حداکثر ۲۴ کاراکتر باشد — دستگاه همین را هنگام تحریک پیامک می‌کند",
             initialName = device?.inputMessage(index).orEmpty(),
             initialIcon = device?.inputIcon(index) ?: "📥",
+            initialDisplayName = inputs.getOrNull(index)
+                ?.let { if (it.message != it.deviceMessage) it.message else "" }.orEmpty(),
             maxLength = 24,
             onDismiss = { editing = null },
-            onConfirm = { m, ic -> viewModel.setInputMessage(index, m, ic); editing = null }
+            onConfirm = { m, ic, disp ->
+                viewModel.setInputMessage(index, m, ic)
+                device?.let { viewModel.setDisplayName(it.id, false, index, disp) }
+                editing = null
+            }
         )
     }
 

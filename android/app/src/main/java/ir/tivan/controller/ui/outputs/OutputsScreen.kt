@@ -135,12 +135,17 @@ fun OutputsScreen(viewModel: MainViewModel, header: @Composable () -> Unit) {
         val d = device
         RenameDialog(
             title = "نام و آیکون خروجی ${RelativeTime.fa(index + 1)}",
-            hint = "نام باید انگلیسی و حداکثر ۱۴ کاراکتر باشد — همین نام در گزارش دستگاه برمی‌گردد",
+            hint = "نام دستگاه باید انگلیسی و حداکثر ۱۴ کاراکتر باشد — همین نام در گزارش دستگاه برمی‌گردد و با پیامک روی خود دستگاه هم تغییر می‌کند",
             initialName = d?.outputName(index).orEmpty(),
             initialIcon = d?.outputIcon(index) ?: "🔌",
+            initialDisplayName = outputs.getOrNull(index)?.let { if (it.name != it.deviceName) it.name else "" }.orEmpty(),
             maxLength = 14,
             onDismiss = { renaming = null },
-            onConfirm = { n, ic -> viewModel.renameOutput(index, n, ic); renaming = null }
+            onConfirm = { n, ic, disp ->
+                viewModel.renameOutput(index, n, ic)
+                d?.let { viewModel.setDisplayName(it.id, true, index, disp) }
+                renaming = null
+            }
         )
     }
 
@@ -395,20 +400,27 @@ fun ActionRow(emoji: String, title: String, subtitle: String, onClick: () -> Uni
     }
 }
 
-/** Shared by outputs and inputs: edit the label and pick an emoji together. */
+/**
+ * Shared by outputs and inputs: edit the on-device name (sent to the
+ * controller by SMS, so it stays ASCII), the icon, and an optional local
+ * display name — shown only inside the app, never sent anywhere, so it can
+ * be Persian or anything else.
+ */
 @Composable
 fun RenameDialog(
     title: String,
     hint: String,
     initialName: String,
     initialIcon: String,
+    initialDisplayName: String = "",
     maxLength: Int,
     onDismiss: () -> Unit,
-    onConfirm: (String, String) -> Unit
+    onConfirm: (String, String, String) -> Unit
 ) {
     val c = Tivan
     var name by remember { mutableStateOf(initialName) }
     var icon by remember { mutableStateOf(initialIcon) }
+    var displayName by remember { mutableStateOf(initialDisplayName) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -420,7 +432,7 @@ fun RenameDialog(
                 Text(hint, style = MaterialTheme.typography.labelSmall, color = c.dim)
                 Spacer(Modifier.height(12.dp))
                 LabeledField(
-                    "نام",
+                    "نام روی دستگاه",
                     name,
                     { if (it.length <= maxLength) name = it },
                     "PUMP"
@@ -432,13 +444,26 @@ fun RenameDialog(
                     modifier = Modifier.padding(top = 4.dp)
                 )
                 Spacer(Modifier.height(14.dp))
+                LabeledField(
+                    "نام نمایشی در برنامه (اختیاری)",
+                    displayName,
+                    { if (it.length <= 24) displayName = it },
+                    "مثلاً «پمپ استخر» — فقط همینجا دیده می‌شود"
+                )
+                Text(
+                    "خالی بگذارید تا همون نام دستگاه نمایش داده شود",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = c.dim2,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+                Spacer(Modifier.height(14.dp))
                 Text("آیکون", style = MaterialTheme.typography.labelSmall, color = c.dim)
                 Spacer(Modifier.height(8.dp))
                 EmojiPicker(Device.ICON_CHOICES, icon, { icon = it })
             }
         },
         confirmButton = {
-            TextButton(onClick = { onConfirm(name, icon) }) { Text("ذخیره و ارسال") }
+            TextButton(onClick = { onConfirm(name, icon, displayName) }) { Text("ذخیره و ارسال") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("انصراف") } }
     )

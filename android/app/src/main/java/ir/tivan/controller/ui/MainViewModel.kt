@@ -1,6 +1,7 @@
 package ir.tivan.controller.ui
 
 import android.app.Application
+import androidx.core.content.edit
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import ir.tivan.controller.TivanApp
@@ -19,7 +20,10 @@ import kotlinx.coroutines.launch
 /** What the UI shows for one relay output. */
 data class OutputUi(
     val index: Int,
+    /** What's shown in the UI — the local display name if set, else [deviceName]. */
     val name: String,
+    /** The name the controller itself echoes in reports; what a device rename sends. */
+    val deviceName: String,
     val icon: String,
     val on: Boolean?,          // null = never heard from the device
     val pending: Boolean,
@@ -30,6 +34,7 @@ data class OutputUi(
 data class InputUi(
     val index: Int,
     val message: String,
+    val deviceMessage: String,
     val icon: String,
     /** 0 = OFF, 1 = N.O, 2 = N.C. */
     val mode: Int,
@@ -49,6 +54,30 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private val tivanApp get() = getApplication<TivanApp>()
     private val repo get() = tivanApp.repository
+
+    // ---- local-only display names --------------------------------------------
+    // The controller echoes device.outputName/inputMessage in every SMS report,
+    // and StatusParser matches against exactly that string — so it must stay
+    // ASCII and in sync with what NAMEOUTx/PAYAMEINx set on the device. A
+    // separate, purely cosmetic override lets the app show a Persian (or just
+    // nicer) label without touching that SMS contract at all.
+    private val displayNamePrefs =
+        getApplication<Application>().getSharedPreferences("display_names", android.content.Context.MODE_PRIVATE)
+    private val _displayNames = MutableStateFlow(displayNamePrefs.all.mapValues { it.value as String })
+
+    private fun displayKey(deviceId: Long, output: Boolean, index: Int) =
+        "${deviceId}_${if (output) "out" else "in"}_$index"
+
+    fun setDisplayName(deviceId: Long, output: Boolean, index: Int, name: String) {
+        val key = displayKey(deviceId, output, index)
+        val clean = name.trim()
+        displayNamePrefs.edit {
+            if (clean.isBlank()) remove(key) else putString(key, clean)
+        }
+        _displayNames.update { m ->
+            if (clean.isBlank()) m - key else m + (key to clean)
+        }
+    }
 
     val devices: StateFlow<List<Device>> =
         repo.devices.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -89,12 +118,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val alarm: StateFlow<Int?> = _alarm.asStateFlow()
 
     val outputs: StateFlow<List<OutputUi>> =
-        combine(selectedDevice, status, _pendingOutputs) { device, st, pending ->
+        combine(selectedDevice, status, _pendingOutputs, _displayNames) { device, st, pending, display ->
             val count = device?.channelCount ?: 4
             (0 until count).map { i ->
+                val deviceName = device?.outputName(i) ?: "OUT${i + 1}"
                 OutputUi(
                     index = i,
-                    name = device?.outputName(i) ?: "OUT${i + 1}",
+                    name = device?.let { display[displayKey(it.id, true, i)] } ?: deviceName,
+                    deviceName = deviceName,
                     icon = device?.outputIcon(i) ?: "🔌",
                     on = st?.output(i),
                     pending = pending.containsKey(i),
@@ -114,12 +145,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     val inputs: StateFlow<List<InputUi>> =
-        combine(selectedDevice, status, highlightTicker) { device, st, now ->
+        combine(selectedDevice, status, highlightTicker, _displayNames) { device, st, now, display ->
             val count = device?.channelCount ?: 4
             (0 until count).map { i ->
+                val deviceMessage = device?.inputMessage(i) ?: "In${i + 1} Triggered"
                 InputUi(
                     index = i,
-                    message = device?.inputMessage(i) ?: "In${i + 1} Triggered",
+                    message = device?.let { display[displayKey(it.id, false, i)] } ?: deviceMessage,
+                    deviceMessage = deviceMessage,
                     icon = device?.inputIcon(i) ?: "📥",
                     mode = device?.inputModes?.getOrNull(i) ?: 1,
                     closed = st?.input(i),
