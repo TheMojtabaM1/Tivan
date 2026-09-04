@@ -57,6 +57,21 @@ android {
                 keyPassword = secret("keyPassword", "KEY_PASSWORD")
             }
         }
+        // AGP's implicit debug config auto-generates ~/.android/debug.keystore
+        // the first time it's needed — on a fresh CI runner that means a brand
+        // new, different key every single build. Since release falls back to
+        // this same config when no real release key is configured, every
+        // GitHub Actions release ended up signed with a different certificate,
+        // and Android refuses to install an update signed by a different key
+        // (forcing an uninstall each time). Pointing debug at a keystore
+        // checked into the repo keeps that signature identical across builds
+        // and machines, so releases install as normal updates.
+        getByName("debug") {
+            storeFile = file("keystore/tivan-ci-debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
     }
 
     buildTypes {
