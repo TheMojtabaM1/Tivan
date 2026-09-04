@@ -13,6 +13,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import ir.tivan.controller.ui.MainViewModel
@@ -21,6 +22,7 @@ import ir.tivan.controller.ui.inputs.SegmentButton
 import ir.tivan.controller.ui.security.EmptyHint
 import ir.tivan.controller.ui.theme.AppTheme
 import ir.tivan.controller.ui.theme.Tivan
+import ir.tivan.controller.ui.theme.TivanLayout
 import ir.tivan.controller.util.AppPreferences
 import ir.tivan.controller.util.RelativeTime
 import ir.tivan.controller.util.UiMode
@@ -48,34 +50,58 @@ fun SettingsScreen(viewModel: MainViewModel, prefs: AppPreferences, header: @Com
 
         // Horizontal tab strip — six sections is too many for a bottom bar but
         // fits comfortably here, and keeps each page short enough to scan.
+        // Shape branches by theme like every other screen: Obsidian drops the
+        // pill background for a plain underline, Instrument uses square
+        // bordered chips, Linen keeps the rounded pill.
+        val layout = TivanLayout
         Row(
             Modifier
                 .horizontalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(7.dp)
+            horizontalArrangement = Arrangement.spacedBy(if (layout == AppTheme.OBSIDIAN) 18.dp else 7.dp)
         ) {
             SettingsTab.entries.forEach { t ->
                 val sel = t == tab
-                Row(
-                    Modifier
-                        .clip(RoundedCornerShape(13.dp))
-                        .background(if (sel) c.primary.copy(alpha = 0.22f) else c.glassStrong)
-                        .border(
-                            1.dp,
-                            if (sel) c.primary.copy(alpha = 0.5f) else c.stroke,
-                            RoundedCornerShape(13.dp)
-                        )
-                        .clickable { tab = t }
-                        .padding(horizontal = 12.dp, vertical = 9.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(t.emoji, style = MaterialTheme.typography.labelMedium)
-                    Spacer(Modifier.width(6.dp))
-                    Text(
-                        t.label,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = if (sel) c.text else c.dim2
-                    )
+                when (layout) {
+                    AppTheme.OBSIDIAN ->
+                        Column(
+                            Modifier.clickable { tab = t },
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                t.label,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = if (sel) c.text else c.dim2
+                            )
+                            Spacer(Modifier.height(6.dp))
+                            Box(
+                                Modifier
+                                    .width(22.dp)
+                                    .height(2.dp)
+                                    .background(if (sel) c.primary else Color.Transparent)
+                            )
+                        }
+
+                    else -> {
+                        val shape = if (layout == AppTheme.INSTRUMENT) RoundedCornerShape(4.dp) else RoundedCornerShape(13.dp)
+                        Row(
+                            Modifier
+                                .clip(shape)
+                                .background(if (sel) c.primary.copy(alpha = 0.22f) else c.glassStrong)
+                                .border(1.dp, if (sel) c.primary.copy(alpha = 0.5f) else c.stroke, shape)
+                                .clickable { tab = t }
+                                .padding(horizontal = 12.dp, vertical = 9.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(t.emoji, style = MaterialTheme.typography.labelMedium)
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                t.label,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = if (sel) c.text else c.dim2
+                            )
+                        }
+                    }
                 }
             }
         }

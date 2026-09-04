@@ -9,6 +9,9 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -345,28 +348,33 @@ fun EmojiPicker(
     perRow: Int = 6
 ) {
     val c = Tivan
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        options.chunked(perRow).forEach { row ->
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                row.forEach { e ->
-                    val isSel = e == selected
-                    Box(
-                        Modifier
-                            .size(46.dp)
-                            .clip(RoundedCornerShape(15.dp))
-                            .background(if (isSel) c.primary.copy(alpha = 0.24f) else c.glassStrong)
-                            .border(
-                                1.dp,
-                                if (isSel) c.primary.copy(alpha = 0.55f) else c.stroke,
-                                RoundedCornerShape(15.dp)
-                            )
-                            .clickable { onSelect(e) },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(e, style = MaterialTheme.typography.titleMedium)
-                    }
-                }
-                repeat(perRow - row.size) { Spacer(Modifier.size(46.dp)) }
+    // A bounded, independently-scrollable grid — nesting a plain Column full of
+    // rows inside the dialog's own verticalScroll left the rows past the fold
+    // unreachable, since two nested scroll containers fight over the drag.
+    LazyVerticalGrid(
+        columns = GridCells.Fixed(perRow),
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(max = 220.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        gridItems(options) { e ->
+            val isSel = e == selected
+            Box(
+                Modifier
+                    .size(46.dp)
+                    .clip(RoundedCornerShape(15.dp))
+                    .background(if (isSel) c.primary.copy(alpha = 0.24f) else c.glassStrong)
+                    .border(
+                        1.dp,
+                        if (isSel) c.primary.copy(alpha = 0.55f) else c.stroke,
+                        RoundedCornerShape(15.dp)
+                    )
+                    .clickable { onSelect(e) },
+                contentAlignment = Alignment.Center
+            ) {
+                Text(e, style = MaterialTheme.typography.titleMedium)
             }
         }
     }

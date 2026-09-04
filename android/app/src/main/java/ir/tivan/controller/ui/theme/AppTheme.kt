@@ -8,15 +8,15 @@ package ir.tivan.controller.ui.theme
  */
 enum class AppTheme(val label: String, val description: String) {
     OBSIDIAN(
-        "اُبسیدین",
+        "دیجور",
         "مشکی و شامپاینی، خطوط مویی، بدون کارت — مینیمال و شیک"
     ),
     LINEN(
-        "لینن",
+        "کتان",
         "کاغذ گرم و روشن، کارت‌های نرم گرد — آرام و دوستانه"
     ),
     INSTRUMENT(
-        "اینسترومنت",
+        "ابزار",
         "پنل فنی تیره با لهجه‌ی فیروزه‌ای — دقیق و تکنیکال"
     )
 }
