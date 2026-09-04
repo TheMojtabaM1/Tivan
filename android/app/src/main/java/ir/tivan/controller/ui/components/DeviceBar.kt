@@ -39,31 +39,44 @@ fun DeviceBar(
     modifier: Modifier = Modifier
 ) {
     val c = Tivan
-    GlassCard(modifier = modifier.fillMaxWidth(), onClick = onOpenSwitcher) {
-        Row(
-            Modifier.padding(11.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconTile(device?.icon ?: "➕", size = 42.dp)
-            Spacer(Modifier.width(11.dp))
-            Column(Modifier.weight(1f)) {
-                Text(
-                    device?.name ?: "دستگاهی اضافه نشده",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = c.text
-                )
-                Text(
-                    device?.phoneNumber ?: "برای افزودن لمس کنید",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = c.dim
-                )
-            }
-            if (antenna != null) {
-                StatusPill(antenna, c.on)
-                Spacer(Modifier.width(8.dp))
-            }
-            Text("▾", style = MaterialTheme.typography.bodyMedium, color = c.dim2)
+    val layout = ir.tivan.controller.ui.theme.TivanLayout
+    val content: @Composable RowScope.() -> Unit = {
+        IconTile(device?.icon ?: "➕", size = 42.dp)
+        Spacer(Modifier.width(11.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                device?.name ?: "دستگاهی اضافه نشده",
+                style = MaterialTheme.typography.titleMedium,
+                color = c.text
+            )
+            Text(
+                device?.phoneNumber ?: "برای افزودن لمس کنید",
+                style = MaterialTheme.typography.labelSmall,
+                color = c.dim
+            )
         }
+        if (antenna != null) {
+            StatusPill(antenna, c.on)
+            Spacer(Modifier.width(8.dp))
+        }
+        Text("▾", style = MaterialTheme.typography.bodyMedium, color = c.dim2)
+    }
+
+    if (layout == ir.tivan.controller.ui.theme.AppTheme.LINEN) {
+        GlassCard(modifier = modifier.fillMaxWidth(), onClick = onOpenSwitcher) {
+            Row(Modifier.padding(11.dp), verticalAlignment = Alignment.CenterVertically, content = content)
+        }
+    } else {
+        // Flat header row, no card — the mockup's device name is plain text
+        // in Obsidian and Instrument, not a boxed button.
+        Row(
+            modifier
+                .fillMaxWidth()
+                .clickable(onClick = onOpenSwitcher)
+                .padding(vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            content = content
+        )
     }
 }
 

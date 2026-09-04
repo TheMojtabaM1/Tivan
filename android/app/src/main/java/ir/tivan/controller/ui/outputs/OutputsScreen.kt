@@ -32,6 +32,8 @@ fun OutputsScreen(viewModel: MainViewModel, header: @Composable () -> Unit) {
     val layout = TivanLayout
     val outputs by viewModel.outputs.collectAsState()
     val device by viewModel.selectedDevice.collectAsState()
+    val status by viewModel.status.collectAsState()
+    val pendingSecurity by viewModel.pendingSecurity.collectAsState()
     var renaming by remember { mutableStateOf<Int?>(null) }
     var timerFor by remember { mutableStateOf<Int?>(null) }
 
@@ -104,6 +106,16 @@ fun OutputsScreen(viewModel: MainViewModel, header: @Composable () -> Unit) {
                 }
         }
 
+        SectionHeader("امنیت")
+        SecurityTeaser(
+            armed = status?.securityArmed,
+            pending = pendingSecurity,
+            onToggle = {
+                val target = pendingSecurity ?: (status?.securityArmed != true)
+                viewModel.setSecurity(target)
+            }
+        )
+
         SectionHeader("همه خروجی‌ها")
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             TinyButton(
@@ -155,6 +167,96 @@ fun OutputsScreen(viewModel: MainViewModel, header: @Composable () -> Unit) {
             onDismiss = { timerFor = null },
             onSend = { cmd -> viewModel.sendCommand(cmd); timerFor = null }
         )
+    }
+}
+
+/**
+ * A tap-to-arm/disarm teaser at the bottom of the home screen, matching the
+ * mockup's inline "امنیت" block — full zone management still lives on the
+ * dedicated Security tab, but arming from here needs no extra tap.
+ */
+@Composable
+private fun SecurityTeaser(armed: Boolean?, pending: Boolean?, onToggle: () -> Unit) {
+    val c = Tivan
+    val layout = TivanLayout
+    val isArmed = armed == true
+    val statusText = when {
+        pending != null -> "در انتظار تأیید…"
+        isArmed -> "فعال"
+        else -> "غیرفعال"
+    }
+    val hint = when {
+        pending != null -> "پیامک ارسال شد…"
+        isArmed -> "برای غیرفعال کردن لمس کنید"
+        else -> "برای فعال‌سازی لمس کنید"
+    }
+    val accent = when {
+        pending != null -> c.pending
+        isArmed -> c.alarm
+        else -> c.dim2
+    }
+
+    when (layout) {
+        AppTheme.OBSIDIAN ->
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .border(1.dp, c.stroke)
+                    .clickable(onClick = onToggle)
+                    .padding(vertical = 22.dp, horizontal = 18.dp)
+            ) {
+                Text("سیستم امنیتی", style = MaterialTheme.typography.labelSmall, color = c.dim2)
+                Spacer(Modifier.height(8.dp))
+                Text(statusText, style = MaterialTheme.typography.headlineSmall, color = c.text)
+                Spacer(Modifier.height(3.dp))
+                Text(hint, style = MaterialTheme.typography.labelSmall, color = c.dim2)
+            }
+
+        AppTheme.INSTRUMENT ->
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(c.cardCorner))
+                    .background(c.glass)
+                    .border(1.dp, if (isArmed) accent.copy(alpha = 0.5f) else c.stroke, RoundedCornerShape(c.cardCorner))
+                    .clickable(onClick = onToggle)
+                    .padding(horizontal = 14.dp, vertical = 15.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    Modifier
+                        .size(38.dp)
+                        .border(1.dp, c.stroke, RoundedCornerShape(3.dp)),
+                    contentAlignment = Alignment.Center
+                ) { Text(if (isArmed) "🔒" else "🔓", color = accent) }
+                Spacer(Modifier.width(12.dp))
+                Column {
+                    Text("SECURITY", style = MaterialTheme.typography.labelSmall, color = c.dim2)
+                    Text(statusText, style = MaterialTheme.typography.titleSmall, color = c.text)
+                }
+            }
+
+        AppTheme.LINEN ->
+            GlassCard(Modifier.fillMaxWidth(), onClick = onToggle) {
+                Row(Modifier.padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        Modifier
+                            .size(52.dp)
+                            .clip(CircleShape)
+                            .background(accent.copy(alpha = 0.14f)),
+                        contentAlignment = Alignment.Center
+                    ) { Text(if (isArmed) "🔒" else "🔓", style = MaterialTheme.typography.titleMedium) }
+                    Spacer(Modifier.width(14.dp))
+                    Column {
+                        Text(
+                            if (isArmed) "دزدگیر فعال" else "دزدگیر غیرفعال",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = c.text
+                        )
+                        Text(hint, style = MaterialTheme.typography.labelSmall, color = c.dim2)
+                    }
+                }
+            }
     }
 }
 
