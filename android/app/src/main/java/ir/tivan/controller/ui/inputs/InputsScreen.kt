@@ -18,7 +18,9 @@ import ir.tivan.controller.ui.InputUi
 import ir.tivan.controller.ui.MainViewModel
 import ir.tivan.controller.ui.components.*
 import ir.tivan.controller.ui.outputs.RenameDialog
+import ir.tivan.controller.ui.theme.AppTheme
 import ir.tivan.controller.ui.theme.Tivan
+import ir.tivan.controller.ui.theme.TivanLayout
 import ir.tivan.controller.util.RelativeTime
 
 private val MODE_LABELS = listOf("خاموش", "N.O", "N.C")
@@ -133,105 +135,156 @@ private fun InputCard(
         else -> "آماده"
     }
 
-    GlassCard(
-        Modifier.fillMaxWidth(),
-        tint = if (alert) c.alarm.copy(alpha = 0.14f) else c.glass,
-        borderTint = if (alert) c.alarm.copy(alpha = 0.4f) else c.stroke
-    ) {
-        Column(Modifier.padding(14.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+    val layout = TivanLayout
+    val content: @Composable ColumnScope.() -> Unit = {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (layout != AppTheme.OBSIDIAN) {
                 IconTile(
                     state.icon,
                     tint = if (alert) c.alarm.copy(alpha = 0.18f) else c.glassStrong,
                     borderTint = if (alert) c.alarm.copy(alpha = 0.4f) else c.stroke
                 )
                 Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        "ورودی ${RelativeTime.fa(state.index + 1)}",
-                        style = MaterialTheme.typography.titleSmall,
-                        color = c.text
-                    )
-                    Text(
-                        when {
-                            off -> "این ورودی خاموش است و تحریک نمی‌شود"
-                            state.triggeredAt > 0L ->
-                                "آخرین تحریک: ${RelativeTime.ago(state.triggeredAt)}"
-                            else -> "هنوز تحریکی ثبت نشده"
-                        },
-                        style = MaterialTheme.typography.labelSmall,
-                        color = c.dim2
-                    )
-                    if (!off && state.stateAt > 0L) {
-                        Text(
-                            "وضعیت طبق گزارش: ${RelativeTime.ago(state.stateAt)}",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = c.dim2.copy(alpha = 0.8f)
-                        )
-                    }
-                }
-                StatusPill(label, accent)
             }
-
-            Spacer(Modifier.height(11.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                MODE_LABELS.forEachIndexed { mode, label ->
-                    SegmentButton(
-                        text = label,
-                        selected = state.mode == mode,
-                        modifier = Modifier.weight(1f),
-                        onClick = { onModeChange(mode) }
-                    )
-                }
-            }
-
-            Spacer(Modifier.height(10.dp))
-            // The exact text the controller will SMS on trigger — editable, and
-            // the same string the parser matches against.
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(13.dp))
-                    .background(if (c.dark) c.glassStrong else c.glass)
-                    .border(1.dp, c.stroke, RoundedCornerShape(13.dp))
-                    .clickable(onClick = onEditMessage)
-                    .padding(horizontal = 12.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            Column(Modifier.weight(1f)) {
                 Text(
-                    state.message,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = c.dim,
-                    modifier = Modifier.weight(1f),
-                    maxLines = 1
+                    if (layout == AppTheme.INSTRUMENT) "IN${state.index + 1}"
+                    else "ورودی ${RelativeTime.fa(state.index + 1)}",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = c.text
                 )
-                Text("ویرایش", style = MaterialTheme.typography.labelSmall, color = c.primary)
-            }
-
-            Spacer(Modifier.height(8.dp))
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(13.dp))
-                    .clickable(onClick = onEditResponse)
-                    .padding(horizontal = 4.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
                 Text(
-                    "واکنش دستگاه:",
+                    when {
+                        off -> "این ورودی خاموش است و تحریک نمی‌شود"
+                        state.triggeredAt > 0L ->
+                            "آخرین تحریک: ${RelativeTime.ago(state.triggeredAt)}"
+                        else -> "هنوز تحریکی ثبت نشده"
+                    },
                     style = MaterialTheme.typography.labelSmall,
                     color = c.dim2
                 )
-                Spacer(Modifier.width(6.dp))
-                Text(
-                    responseLabel,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = c.primary,
-                    modifier = Modifier.weight(1f)
-                )
-                Text("›", style = MaterialTheme.typography.bodyMedium, color = c.dim2)
+                if (!off && state.stateAt > 0L) {
+                    Text(
+                        "وضعیت طبق گزارش: ${RelativeTime.ago(state.stateAt)}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = c.dim2.copy(alpha = 0.8f)
+                    )
+                }
+            }
+            if (layout == AppTheme.INSTRUMENT) {
+                Box(
+                    Modifier
+                        .clip(RoundedCornerShape(4.dp))
+                        .border(1.dp, accent.copy(alpha = 0.6f), RoundedCornerShape(4.dp))
+                        .padding(horizontal = 6.dp, vertical = 3.dp)
+                ) {
+                    Text(
+                        when {
+                            off -> "OFF"
+                            alert -> "TRIG"
+                            state.closed == true -> "CLOSED"
+                            state.closed == false -> "OPEN"
+                            else -> "RDY"
+                        },
+                        style = MaterialTheme.typography.labelSmall,
+                        color = accent
+                    )
+                }
+            } else {
+                StatusPill(label, accent)
             }
         }
+
+        Spacer(Modifier.height(11.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+            MODE_LABELS.forEachIndexed { mode, label ->
+                SegmentButton(
+                    text = label,
+                    selected = state.mode == mode,
+                    modifier = Modifier.weight(1f),
+                    onClick = { onModeChange(mode) }
+                )
+            }
+        }
+
+        Spacer(Modifier.height(10.dp))
+        // The exact text the controller will SMS on trigger — editable, and
+        // the same string the parser matches against.
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(13.dp))
+                .background(if (c.dark) c.glassStrong else c.glass)
+                .border(1.dp, c.stroke, RoundedCornerShape(13.dp))
+                .clickable(onClick = onEditMessage)
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                state.message,
+                style = MaterialTheme.typography.labelMedium,
+                color = c.dim,
+                modifier = Modifier.weight(1f),
+                maxLines = 1
+            )
+            Text("ویرایش", style = MaterialTheme.typography.labelSmall, color = c.primary)
+        }
+
+        Spacer(Modifier.height(8.dp))
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(13.dp))
+                .clickable(onClick = onEditResponse)
+                .padding(horizontal = 4.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "واکنش دستگاه:",
+                style = MaterialTheme.typography.labelSmall,
+                color = c.dim2
+            )
+            Spacer(Modifier.width(6.dp))
+            Text(
+                responseLabel,
+                style = MaterialTheme.typography.labelSmall,
+                color = c.primary,
+                modifier = Modifier.weight(1f)
+            )
+            Text("›", style = MaterialTheme.typography.bodyMedium, color = c.dim2)
+        }
+    }
+
+    when (layout) {
+        AppTheme.OBSIDIAN ->
+            Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                HorizontalDivider(c.stroke)
+                Column(Modifier.padding(vertical = 14.dp), content = content)
+            }
+
+        AppTheme.INSTRUMENT ->
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(c.cardCorner))
+                    .background(if (alert) c.alarm.copy(alpha = 0.1f) else c.glass)
+                    .border(
+                        1.dp,
+                        if (alert) c.alarm.copy(alpha = 0.5f) else c.stroke,
+                        RoundedCornerShape(c.cardCorner)
+                    )
+            ) {
+                Column(Modifier.padding(14.dp), content = content)
+            }
+
+        AppTheme.LINEN ->
+            GlassCard(
+                Modifier.fillMaxWidth(),
+                tint = if (alert) c.alarm.copy(alpha = 0.14f) else c.glass,
+                borderTint = if (alert) c.alarm.copy(alpha = 0.4f) else c.stroke
+            ) {
+                Column(Modifier.padding(14.dp), content = content)
+            }
     }
 }
 
