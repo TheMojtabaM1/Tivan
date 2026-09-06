@@ -298,9 +298,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     // ---- device management --------------------------------------------------
     fun selectDevice(id: Long) = repo.selectDevice(id)
 
-    fun addDevice(name: String, phone: String, icon: String, channelCount: Int = 4) {
+    fun addDevice(name: String, phone: String, icon: String, channelCount: Int = 4, isManager: Boolean = true) {
         viewModelScope.launch {
-            repo.addDevice(name.ifBlank { "دستگاه جدید" }, phone, icon, channelCount)
+            repo.addDevice(name.ifBlank { "دستگاه جدید" }, phone, icon, channelCount, isManager)
             emitToast("دستگاه اضافه شد")
         }
     }

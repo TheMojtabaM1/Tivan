@@ -42,6 +42,8 @@ private enum class SettingsTab(val label: String, val emoji: String) {
 fun SettingsScreen(viewModel: MainViewModel, prefs: AppPreferences, header: @Composable () -> Unit) {
     val c = Tivan
     var tab by remember { mutableStateOf(SettingsTab.Numbers) }
+    val device by viewModel.selectedDevice.collectAsState()
+    val isManager = device?.isManager != false
 
     Column(Modifier.fillMaxSize()) {
         Column(Modifier.padding(horizontal = 16.dp)) {
@@ -113,7 +115,13 @@ fun SettingsScreen(viewModel: MainViewModel, prefs: AppPreferences, header: @Com
                 .padding(horizontal = 16.dp)
                 .padding(top = 14.dp)
         ) {
-            when (tab) {
+            if (tab != SettingsTab.Appearance && !isManager) {
+                Text(
+                    "این بخش فقط برای مدیر دستگاه در دسترس است. این شماره به‌عنوان کاربر عادی ثبت شده و فقط اجازه‌ی روشن/خاموش کردن خروجی‌ها و مشاهده‌ی وضعیت را دارد.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = c.dim
+                )
+            } else when (tab) {
                 SettingsTab.Appearance -> AppearanceTab(prefs)
                 SettingsTab.Numbers -> NumbersTab(viewModel)
                 SettingsTab.Reports -> ReportsTab(viewModel)

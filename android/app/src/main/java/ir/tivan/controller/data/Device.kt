@@ -18,6 +18,17 @@ data class Device(
     val phoneNumber: String,
     val icon: String = "🏠",
 
+    /**
+     * Whether the phone number this app runs on is registered as the
+     * device's main/sub manager (per the manual: managers can rename
+     * channels, define sub-managers, and change settings; regular users
+     * can only view status and switch outputs). Chosen once when the
+     * device is added; drives which controls the app itself exposes —
+     * the controller enforces the real restriction on its own.
+     */
+    @ColumnInfo(defaultValue = "1")
+    val isManager: Boolean = true,
+
     /** How many output/input channels this controller has: 2, 4, or 8. */
     @ColumnInfo(defaultValue = "4")
     val channelCount: Int = 4,

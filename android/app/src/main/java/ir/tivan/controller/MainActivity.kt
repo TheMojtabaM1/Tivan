@@ -284,7 +284,7 @@ private fun RootScreen(
             devices = devices,
             selectedId = device?.id,
             onSelect = { viewModel.selectDevice(it) },
-            onAdd = { n, p, i, ch -> viewModel.addDevice(n, p, i, ch) },
+            onAdd = { n, p, i, ch, mgr -> viewModel.addDevice(n, p, i, ch, mgr) },
             onDelete = { viewModel.deleteDevice(it) },
             onDismiss = { sheetOpen = false }
         )

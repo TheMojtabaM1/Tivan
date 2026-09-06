@@ -17,9 +17,15 @@ class DeviceRepository(private val db: AppDatabase) {
         _selectedDeviceId.value = id
     }
 
-    suspend fun addDevice(name: String, phone: String, icon: String = "🏠", channelCount: Int = 4): Long {
+    suspend fun addDevice(
+        name: String,
+        phone: String,
+        icon: String = "🏠",
+        channelCount: Int = 4,
+        isManager: Boolean = true
+    ): Long {
         val id = db.deviceDao().insert(
-            Device(name = name, phoneNumber = phone, icon = icon, channelCount = channelCount)
+            Device(name = name, phoneNumber = phone, icon = icon, channelCount = channelCount, isManager = isManager)
         )
         if (_selectedDeviceId.value == null) _selectedDeviceId.value = id
         return id

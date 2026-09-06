@@ -38,6 +38,7 @@ fun OutputsScreen(viewModel: MainViewModel, header: @Composable () -> Unit) {
     var timerFor by remember { mutableStateOf<Int?>(null) }
 
     val onSet: (Int, Boolean) -> Unit = { i, target -> viewModel.toggleOutput(i, target) }
+    val isManager = device?.isManager != false
 
     // One scroll container for the whole tab. Every screen does this — the old
     // build nested a fixed-height grid inside a static Column, so anything past
@@ -49,6 +50,13 @@ fun OutputsScreen(viewModel: MainViewModel, header: @Composable () -> Unit) {
             .padding(horizontal = 16.dp)
     ) {
         header()
+
+        TinyButton(
+            "🔄 بروزرسانی اطلاعات",
+            Modifier.fillMaxWidth(),
+            onClick = { viewModel.sendCommand("REPORT", "درخواست گزارش ارسال شد") }
+        )
+        Spacer(Modifier.height(14.dp))
 
         SectionHeader("خروجی‌ها", "لمس برای روشن یا خاموش")
 
@@ -68,8 +76,8 @@ fun OutputsScreen(viewModel: MainViewModel, header: @Composable () -> Unit) {
                                 state = outputs[i],
                                 modifier = Modifier.weight(1f).fillMaxHeight(),
                                 onSet = { on -> onSet(i, on) },
-                                onRename = { renaming = i },
-                                onTimer = { timerFor = i }
+                                onRename = if (isManager) { { renaming = i } } else null,
+                                onTimer = if (isManager) { { timerFor = i } } else null
                             )
                         }
                         if (outputs.size - rowStart == 1) Spacer(Modifier.weight(1f))
@@ -84,8 +92,8 @@ fun OutputsScreen(viewModel: MainViewModel, header: @Composable () -> Unit) {
                         FlatOutputRow(
                             state = o,
                             onSet = { on -> onSet(i, on) },
-                            onRename = { renaming = i },
-                            onTimer = { timerFor = i }
+                            onRename = if (isManager) { { renaming = i } } else null,
+                            onTimer = if (isManager) { { timerFor = i } } else null
                         )
                         if (i < outputs.lastIndex) {
                             HorizontalDivider(c.stroke)
@@ -243,8 +251,8 @@ private fun OutputTile(
     state: OutputUi,
     modifier: Modifier = Modifier,
     onSet: (Boolean) -> Unit,
-    onRename: () -> Unit,
-    onTimer: () -> Unit
+    onRename: (() -> Unit)?,
+    onTimer: (() -> Unit)?
 ) {
     val c = Tivan
     val accent = when {
@@ -316,10 +324,12 @@ private fun OutputTile(
                     onClick = { onSet(false) }
                 )
             }
-            Spacer(Modifier.height(6.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                TinyButton("⏱ تایمر", Modifier.weight(1f), onClick = onTimer)
-                TinyButton("✎ نام", Modifier.weight(1f), onClick = onRename)
+            if (onTimer != null || onRename != null) {
+                Spacer(Modifier.height(6.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    if (onTimer != null) TinyButton("⏱ تایمر", Modifier.weight(1f), onClick = onTimer)
+                    if (onRename != null) TinyButton("✎ نام", Modifier.weight(1f), onClick = onRename)
+                }
             }
         }
     }
@@ -329,8 +339,8 @@ private fun OutputTile(
 private fun FlatOutputRow(
     state: OutputUi,
     onSet: (Boolean) -> Unit,
-    onRename: () -> Unit,
-    onTimer: () -> Unit
+    onRename: (() -> Unit)?,
+    onTimer: (() -> Unit)?
 ) {
     val c = Tivan
     val accent = when {
@@ -355,22 +365,26 @@ private fun FlatOutputRow(
                     color = accent
                 )
             }
-            Text(
-                "⏱",
-                modifier = Modifier
-                    .clip(CircleShape)
-                    .clickable(onClick = onTimer)
-                    .padding(8.dp),
-                color = c.dim2
-            )
-            Text(
-                "✎",
-                modifier = Modifier
-                    .clip(CircleShape)
-                    .clickable(onClick = onRename)
-                    .padding(8.dp),
-                color = c.dim2
-            )
+            if (onTimer != null) {
+                Text(
+                    "⏱",
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .clickable(onClick = onTimer)
+                        .padding(8.dp),
+                    color = c.dim2
+                )
+            }
+            if (onRename != null) {
+                Text(
+                    "✎",
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .clickable(onClick = onRename)
+                        .padding(8.dp),
+                    color = c.dim2
+                )
+            }
         }
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
