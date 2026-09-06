@@ -9,15 +9,12 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
 
 /**
- * Extra tokens Material3 has no slot for — the translucent "glass" fills, the
- * state accents, and the corner radius that gives each theme its shape
- * identity (near-flat for Obsidian, very round for Linen, crisp for
- * Instrument). Held in a [staticCompositionLocalOf] so reading them never
- * triggers recomposition.
+ * Extra tokens Material3 has no slot for — the translucent "glass" fills and
+ * the state accents. Shape (corner radius) lives on [TivanLayout] instead,
+ * since color and shape are independent axes now. Held in a
+ * [staticCompositionLocalOf] so reading them never triggers recomposition.
  */
 @Immutable
 data class TivanColors(
@@ -34,32 +31,11 @@ data class TivanColors(
     val on: Color,
     val pending: Color,
     val alarm: Color,
-    val primary: Color,
-    /** Default corner radius for [ir.tivan.controller.ui.components.GlassCard]. */
-    val cardCorner: Dp
+    val primary: Color
 )
 
-// ── Obsidian: black + champagne, near-flat, minimal ────────────────────────
-private val ObsidianTokens = TivanColors(
-    dark = true,
-    bg = Color(0xFF08080A),
-    bg2 = Color(0xFF0C0F1A),
-    glass = Color(0x0EFFFFFF),
-    glassStrong = Color(0x17FFFFFF),
-    stroke = Color(0x1FFFFFFF),
-    strokeStrong = Color(0x2EFFFFFF),
-    text = Color(0xFFEDEDF0),
-    dim = Color(0xFF9AA3BD),
-    dim2 = Color(0xFF6F7893),
-    on = Color(0xFF4ECBA5),
-    pending = Color(0xFFE8A33D),
-    alarm = Color(0xFFFF5470),
-    primary = Color(0xFFC9A96A),
-    cardCorner = 8.dp
-)
-
-// ── Linen: warm paper, very round, calm ─────────────────────────────────────
-private val LinenTokens = TivanColors(
+// ── Cream: warm paper, calm ──────────────────────────────────────────────────
+private val CreamTokens = TivanColors(
     dark = false,
     bg = Color(0xFFF4F1EC),
     bg2 = Color(0xFFE8E3D9),
@@ -73,47 +49,82 @@ private val LinenTokens = TivanColors(
     on = Color(0xFF00A98A),
     pending = Color(0xFFC98A00),
     alarm = Color(0xFFE03357),
-    primary = Color(0xFF12362E),
-    cardCorner = 24.dp
+    primary = Color(0xFF12362E)
 )
 
-// ── Instrument: technical dark panel, teal accent, crisp ───────────────────
-private val InstrumentTokens = TivanColors(
+// ── Light: plain neutral, clean ─────────────────────────────────────────────
+private val LightTokens = TivanColors(
+    dark = false,
+    bg = Color(0xFFFAFAFA),
+    bg2 = Color(0xFFF0F0F0),
+    glass = Color(0xB2FFFFFF),
+    glassStrong = Color(0xE6FFFFFF),
+    stroke = Color(0x14000000),
+    strokeStrong = Color(0x22000000),
+    text = Color(0xFF1A1A1A),
+    dim = Color(0xFF6B6B6B),
+    dim2 = Color(0xFF9A9A9A),
+    on = Color(0xFF0E8A6E),
+    pending = Color(0xFFC98A00),
+    alarm = Color(0xFFD93655),
+    primary = Color(0xFF1F6FEB)
+)
+
+// ── Dark: near-black + champagne, minimal ───────────────────────────────────
+private val DarkTokens = TivanColors(
     dark = true,
-    bg = Color(0xFF0B0D10),
-    bg2 = Color(0xFF10141A),
-    glass = Color(0x0AFFFFFF),
-    glassStrong = Color(0x14FFFFFF),
-    stroke = Color(0x1EFFFFFF),
-    strokeStrong = Color(0x2CFFFFFF),
-    text = Color(0xFFDDE3E8),
-    dim = Color(0xFF8A94A2),
-    dim2 = Color(0xFF5A6472),
-    on = Color(0xFF3ED8B4),
+    bg = Color(0xFF08080A),
+    bg2 = Color(0xFF0C0F1A),
+    glass = Color(0x0EFFFFFF),
+    glassStrong = Color(0x17FFFFFF),
+    stroke = Color(0x1FFFFFFF),
+    strokeStrong = Color(0x2EFFFFFF),
+    text = Color(0xFFEDEDF0),
+    dim = Color(0xFF9AA3BD),
+    dim2 = Color(0xFF6F7893),
+    on = Color(0xFF4ECBA5),
     pending = Color(0xFFE8A33D),
-    alarm = Color(0xFFF2555A),
-    primary = Color(0xFF3ED8B4),
-    cardCorner = 4.dp
+    alarm = Color(0xFFFF5470),
+    primary = Color(0xFFC9A96A)
 )
 
-fun tokensFor(theme: AppTheme): TivanColors = when (theme) {
-    AppTheme.OBSIDIAN -> ObsidianTokens
-    AppTheme.LINEN -> LinenTokens
-    AppTheme.INSTRUMENT -> InstrumentTokens
+// ── Liquid Glass: frosted, translucent, iOS-26-style ────────────────────────
+private val LiquidGlassTokens = TivanColors(
+    dark = false,
+    bg = Color(0xFFE7EEF5),
+    bg2 = Color(0xFFD8E3EE),
+    glass = Color(0x59FFFFFF),
+    glassStrong = Color(0x99FFFFFF),
+    stroke = Color(0x80FFFFFF),
+    strokeStrong = Color(0xB3FFFFFF),
+    text = Color(0xFF14202B),
+    dim = Color(0xFF51606E),
+    dim2 = Color(0xFF7C8A97),
+    on = Color(0xFF12B886),
+    pending = Color(0xFFFF9F1C),
+    alarm = Color(0xFFFF375F),
+    primary = Color(0xFF0A84FF)
+)
+
+fun tokensFor(palette: TivanPalette): TivanColors = when (palette) {
+    TivanPalette.CREAM -> CreamTokens
+    TivanPalette.LIGHT -> LightTokens
+    TivanPalette.DARK -> DarkTokens
+    TivanPalette.LIQUID_GLASS -> LiquidGlassTokens
 }
 
-val LocalTivanColors = staticCompositionLocalOf { LinenTokens }
+val LocalTivanColors = staticCompositionLocalOf { CreamTokens }
 
-/** Which theme is active — screens read this to switch their whole layout shape, not just colors. */
-val LocalAppTheme = staticCompositionLocalOf { AppTheme.LINEN }
+/** Which layout is active — screens read this to switch their whole structural shape. */
+val LocalTivanLayout = staticCompositionLocalOf { TivanLayout.CARD }
 
 /** Shorthand: `Tivan.on`, `Tivan.glass`, … inside composables. */
 val Tivan: TivanColors
     @Composable @ReadOnlyComposable get() = LocalTivanColors.current
 
-/** Shorthand: `TivanLayout` inside composables — branch on this to pick a screen's layout shape. */
-val TivanLayout: AppTheme
-    @Composable @ReadOnlyComposable get() = LocalAppTheme.current
+/** Shorthand: `CurrentLayout` inside composables — branch on this to pick a screen's structural shape. */
+val CurrentLayout: TivanLayout
+    @Composable @ReadOnlyComposable get() = LocalTivanLayout.current
 
 private fun materialScheme(c: TivanColors) = if (c.dark) {
     darkColorScheme(
@@ -147,11 +158,12 @@ private fun materialScheme(c: TivanColors) = if (c.dark) {
 
 @Composable
 fun TivanTheme(
-    appTheme: AppTheme = AppTheme.LINEN,
+    layout: TivanLayout = TivanLayout.CARD,
+    palette: TivanPalette = TivanPalette.CREAM,
     content: @Composable () -> Unit
 ) {
-    val tokens = tokensFor(appTheme)
-    CompositionLocalProvider(LocalTivanColors provides tokens, LocalAppTheme provides appTheme) {
+    val tokens = tokensFor(palette)
+    CompositionLocalProvider(LocalTivanColors provides tokens, LocalTivanLayout provides layout) {
         MaterialTheme(
             colorScheme = materialScheme(tokens),
             typography = TivanTypography,

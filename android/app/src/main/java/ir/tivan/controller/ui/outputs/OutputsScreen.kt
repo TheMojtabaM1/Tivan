@@ -21,7 +21,7 @@ import ir.tivan.controller.data.Device
 import ir.tivan.controller.ui.MainViewModel
 import ir.tivan.controller.ui.OutputUi
 import ir.tivan.controller.ui.components.*
-import ir.tivan.controller.ui.theme.AppTheme
+import ir.tivan.controller.ui.theme.CurrentLayout
 import ir.tivan.controller.ui.theme.Tivan
 import ir.tivan.controller.ui.theme.TivanLayout
 import ir.tivan.controller.util.RelativeTime
@@ -29,7 +29,7 @@ import ir.tivan.controller.util.RelativeTime
 @Composable
 fun OutputsScreen(viewModel: MainViewModel, header: @Composable () -> Unit) {
     val c = Tivan
-    val layout = TivanLayout
+    val layout = CurrentLayout
     val outputs by viewModel.outputs.collectAsState()
     val device by viewModel.selectedDevice.collectAsState()
     val status by viewModel.status.collectAsState()
@@ -56,7 +56,7 @@ fun OutputsScreen(viewModel: MainViewModel, header: @Composable () -> Unit) {
         SectionHeader("خروجی‌ها", "لمس برای روشن یا خاموش")
 
         when (layout) {
-            AppTheme.LINEN ->
+            TivanLayout.CARD ->
                 // 2-per-row — a LazyVerticalGrid inside a scrolling column needs a
                 // hard height, and up to 8 items never need lazy layout anyway.
                 for (rowStart in outputs.indices step 2) {
@@ -75,11 +75,11 @@ fun OutputsScreen(viewModel: MainViewModel, header: @Composable () -> Unit) {
                     if (rowStart + 2 < outputs.size) Spacer(Modifier.height(11.dp))
                 }
 
-            AppTheme.OBSIDIAN ->
-                // Borderless hairline list — no cards, matching Obsidian's flat identity.
+            TivanLayout.FLAT ->
+                // Borderless hairline list — no cards.
                 Column {
                     outputs.forEachIndexed { i, o ->
-                        ObsidianOutputRow(
+                        FlatOutputRow(
                             state = o,
                             onToggle = { onToggle(i) },
                             onRename = { renaming = i },
@@ -88,20 +88,6 @@ fun OutputsScreen(viewModel: MainViewModel, header: @Composable () -> Unit) {
                         if (i < outputs.lastIndex) {
                             HorizontalDivider(c.stroke)
                         }
-                    }
-                }
-
-            AppTheme.INSTRUMENT ->
-                // Dense single-column technical rows.
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    outputs.forEachIndexed { i, o ->
-                        InstrumentOutputRow(
-                            index = i,
-                            state = o,
-                            onToggle = { onToggle(i) },
-                            onRename = { renaming = i },
-                            onTimer = { timerFor = i }
-                        )
                     }
                 }
         }
@@ -178,7 +164,7 @@ fun OutputsScreen(viewModel: MainViewModel, header: @Composable () -> Unit) {
 @Composable
 private fun SecurityTeaser(armed: Boolean?, pending: Boolean?, onToggle: () -> Unit) {
     val c = Tivan
-    val layout = TivanLayout
+    val layout = CurrentLayout
     val isArmed = armed == true
     val statusText = when {
         pending != null -> "در انتظار تأیید…"
@@ -197,7 +183,7 @@ private fun SecurityTeaser(armed: Boolean?, pending: Boolean?, onToggle: () -> U
     }
 
     when (layout) {
-        AppTheme.OBSIDIAN ->
+        TivanLayout.FLAT ->
             Column(
                 Modifier
                     .fillMaxWidth()
@@ -212,31 +198,7 @@ private fun SecurityTeaser(armed: Boolean?, pending: Boolean?, onToggle: () -> U
                 Text(hint, style = MaterialTheme.typography.labelSmall, color = c.dim2)
             }
 
-        AppTheme.INSTRUMENT ->
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(c.cardCorner))
-                    .background(c.glass)
-                    .border(1.dp, if (isArmed) accent.copy(alpha = 0.5f) else c.stroke, RoundedCornerShape(c.cardCorner))
-                    .clickable(onClick = onToggle)
-                    .padding(horizontal = 14.dp, vertical = 15.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    Modifier
-                        .size(38.dp)
-                        .border(1.dp, c.stroke, RoundedCornerShape(3.dp)),
-                    contentAlignment = Alignment.Center
-                ) { Text(if (isArmed) "🔒" else "🔓", color = accent) }
-                Spacer(Modifier.width(12.dp))
-                Column {
-                    Text("SECURITY", style = MaterialTheme.typography.labelSmall, color = c.dim2)
-                    Text(statusText, style = MaterialTheme.typography.titleSmall, color = c.text)
-                }
-            }
-
-        AppTheme.LINEN ->
+        TivanLayout.CARD ->
             GlassCard(Modifier.fillMaxWidth(), onClick = onToggle) {
                 Row(Modifier.padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
                     Box(
@@ -330,7 +292,7 @@ private fun OutputTile(
 }
 
 @Composable
-private fun ObsidianOutputRow(
+private fun FlatOutputRow(
     state: OutputUi,
     onToggle: () -> Unit,
     onRename: () -> Unit,
@@ -380,62 +342,6 @@ private fun ObsidianOutputRow(
         )
         Spacer(Modifier.width(4.dp))
         MiniSwitch(on = state.on == true, pending = state.pending, accent = accent)
-    }
-}
-
-@Composable
-private fun InstrumentOutputRow(
-    index: Int,
-    state: OutputUi,
-    onToggle: () -> Unit,
-    onRename: () -> Unit,
-    onTimer: () -> Unit
-) {
-    val c = Tivan
-    val accent = when {
-        state.pending -> c.pending
-        state.on == true -> c.on
-        else -> c.dim2
-    }
-    val stateLabel = when {
-        state.pending -> "WAIT"
-        state.on == true -> "ON"
-        state.on == false -> "OFF"
-        else -> "—"
-    }
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(c.cardCorner))
-            .background(c.glass)
-            .border(1.dp, if (state.on == true || state.pending) accent.copy(alpha = 0.5f) else c.stroke, RoundedCornerShape(c.cardCorner))
-            .clickable(onClick = onToggle)
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            Modifier
-                .clip(RoundedCornerShape(4.dp))
-                .border(1.dp, accent.copy(alpha = 0.6f), RoundedCornerShape(4.dp))
-                .padding(horizontal = 6.dp, vertical = 3.dp)
-        ) {
-            Text(stateLabel, style = MaterialTheme.typography.labelSmall, color = accent)
-        }
-        Spacer(Modifier.width(10.dp))
-        Column(Modifier.weight(1f)) {
-            Text(state.name, style = MaterialTheme.typography.titleSmall, color = c.text, maxLines = 1)
-            Text("RELAY ${index + 1}", style = MaterialTheme.typography.labelSmall, color = c.dim2)
-        }
-        Text(
-            "CH${(index + 1).toString().padStart(2, '0')}",
-            style = MaterialTheme.typography.labelSmall,
-            color = c.dim2
-        )
-        Spacer(Modifier.width(10.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            TinyButton("⏱", onClick = onTimer)
-            TinyButton("✎", onClick = onRename)
-        }
     }
 }
 

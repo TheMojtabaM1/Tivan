@@ -19,6 +19,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import ir.tivan.controller.ui.theme.CurrentLayout
 import ir.tivan.controller.ui.theme.Tivan
 
 /**
@@ -38,7 +39,7 @@ fun GlassCard(
     content: @Composable ColumnScope.() -> Unit
 ) {
     val c = Tivan
-    val shape: Shape = RoundedCornerShape(corner ?: c.cardCorner)
+    val shape: Shape = RoundedCornerShape(corner ?: CurrentLayout.cardCorner)
     val base = tint ?: c.glass
 
     var m = modifier

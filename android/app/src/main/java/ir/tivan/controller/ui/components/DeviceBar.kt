@@ -39,7 +39,7 @@ fun DeviceBar(
     modifier: Modifier = Modifier
 ) {
     val c = Tivan
-    val layout = ir.tivan.controller.ui.theme.TivanLayout
+    val layout = ir.tivan.controller.ui.theme.CurrentLayout
     val content: @Composable RowScope.() -> Unit = {
         IconTile(device?.icon ?: "➕", size = 42.dp)
         Spacer(Modifier.width(11.dp))
@@ -62,13 +62,13 @@ fun DeviceBar(
         Text("▾", style = MaterialTheme.typography.bodyMedium, color = c.dim2)
     }
 
-    if (layout == ir.tivan.controller.ui.theme.AppTheme.LINEN) {
+    if (layout == ir.tivan.controller.ui.theme.TivanLayout.CARD) {
         GlassCard(modifier = modifier.fillMaxWidth(), onClick = onOpenSwitcher) {
             Row(Modifier.padding(11.dp), verticalAlignment = Alignment.CenterVertically, content = content)
         }
     } else {
-        // Flat header row, no card — the mockup's device name is plain text
-        // in Obsidian and Instrument, not a boxed button.
+        // Flat header row, no card — the device name is plain text, not a
+        // boxed button.
         Row(
             modifier
                 .fillMaxWidth()
@@ -338,7 +338,8 @@ fun LabeledField(
             value = value,
             onValueChange = onChange,
             placeholder = { Text(placeholder, color = c.dim2) },
-            singleLine = true,
+            minLines = 1,
+            maxLines = 3,
             shape = RoundedCornerShape(15.dp),
             keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
             modifier = Modifier.fillMaxWidth(),

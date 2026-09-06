@@ -18,7 +18,7 @@ import ir.tivan.controller.ui.InputUi
 import ir.tivan.controller.ui.MainViewModel
 import ir.tivan.controller.ui.components.*
 import ir.tivan.controller.ui.outputs.RenameDialog
-import ir.tivan.controller.ui.theme.AppTheme
+import ir.tivan.controller.ui.theme.CurrentLayout
 import ir.tivan.controller.ui.theme.Tivan
 import ir.tivan.controller.ui.theme.TivanLayout
 import ir.tivan.controller.util.RelativeTime
@@ -135,10 +135,10 @@ private fun InputCard(
         else -> "آماده"
     }
 
-    val layout = TivanLayout
+    val layout = CurrentLayout
     val content: @Composable ColumnScope.() -> Unit = {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            if (layout != AppTheme.OBSIDIAN) {
+            if (layout != TivanLayout.FLAT) {
                 IconTile(
                     state.icon,
                     tint = if (alert) c.alarm.copy(alpha = 0.18f) else c.glassStrong,
@@ -148,8 +148,7 @@ private fun InputCard(
             }
             Column(Modifier.weight(1f)) {
                 Text(
-                    if (layout == AppTheme.INSTRUMENT) "IN${state.index + 1}"
-                    else "ورودی ${RelativeTime.fa(state.index + 1)}",
+                    "ورودی ${RelativeTime.fa(state.index + 1)}",
                     style = MaterialTheme.typography.titleSmall,
                     color = c.text
                 )
@@ -171,28 +170,7 @@ private fun InputCard(
                     )
                 }
             }
-            if (layout == AppTheme.INSTRUMENT) {
-                Box(
-                    Modifier
-                        .clip(RoundedCornerShape(4.dp))
-                        .border(1.dp, accent.copy(alpha = 0.6f), RoundedCornerShape(4.dp))
-                        .padding(horizontal = 6.dp, vertical = 3.dp)
-                ) {
-                    Text(
-                        when {
-                            off -> "OFF"
-                            alert -> "TRIG"
-                            state.closed == true -> "CLOSED"
-                            state.closed == false -> "OPEN"
-                            else -> "RDY"
-                        },
-                        style = MaterialTheme.typography.labelSmall,
-                        color = accent
-                    )
-                }
-            } else {
-                StatusPill(label, accent)
-            }
+            StatusPill(label, accent)
         }
 
         Spacer(Modifier.height(11.dp))
@@ -256,28 +234,13 @@ private fun InputCard(
     }
 
     when (layout) {
-        AppTheme.OBSIDIAN ->
+        TivanLayout.FLAT ->
             Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
                 HorizontalDivider(c.stroke)
                 Column(Modifier.padding(vertical = 14.dp), content = content)
             }
 
-        AppTheme.INSTRUMENT ->
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(c.cardCorner))
-                    .background(if (alert) c.alarm.copy(alpha = 0.1f) else c.glass)
-                    .border(
-                        1.dp,
-                        if (alert) c.alarm.copy(alpha = 0.5f) else c.stroke,
-                        RoundedCornerShape(c.cardCorner)
-                    )
-            ) {
-                Column(Modifier.padding(14.dp), content = content)
-            }
-
-        AppTheme.LINEN ->
+        TivanLayout.CARD ->
             GlassCard(
                 Modifier.fillMaxWidth(),
                 tint = if (alert) c.alarm.copy(alpha = 0.14f) else c.glass,

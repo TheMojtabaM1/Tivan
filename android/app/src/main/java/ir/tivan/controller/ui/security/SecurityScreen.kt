@@ -26,7 +26,7 @@ import ir.tivan.controller.data.LogDirection
 import ir.tivan.controller.ui.MainViewModel
 import ir.tivan.controller.ui.components.*
 import ir.tivan.controller.ui.inputs.SegmentButton
-import ir.tivan.controller.ui.theme.AppTheme
+import ir.tivan.controller.ui.theme.CurrentLayout
 import ir.tivan.controller.ui.theme.Tivan
 import ir.tivan.controller.ui.theme.TivanLayout
 import ir.tivan.controller.util.RelativeTime
@@ -41,10 +41,10 @@ fun SecurityScreen(viewModel: MainViewModel, header: @Composable () -> Unit) {
 
     val armed = status?.securityArmed
     val zones = device?.securityZones ?: 2
-    val layout = TivanLayout
+    val layout = CurrentLayout
 
     val panelContent: @Composable ColumnScope.() -> Unit = {
-        ArmBadge(armed = armed, pending = pending, square = layout == AppTheme.INSTRUMENT)
+        ArmBadge(armed = armed, pending = pending, square = layout == TivanLayout.FLAT)
 
         Spacer(Modifier.height(6.dp))
         if (armed != null && pending == null) {
@@ -106,8 +106,8 @@ fun SecurityScreen(viewModel: MainViewModel, header: @Composable () -> Unit) {
         header()
         SectionHeader("دزدگیر", "زون‌ها و آژیر")
 
-        if (layout == AppTheme.OBSIDIAN) {
-            // No cards in Obsidian — a flat, borderless block with hairlines
+        if (layout == TivanLayout.FLAT) {
+            // No cards in flat layout — a borderless block with hairlines
             // above and below instead.
             HorizontalDivider(c.stroke)
             Column(

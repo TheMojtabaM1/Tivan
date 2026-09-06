@@ -18,7 +18,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
-import ir.tivan.controller.ui.theme.AppTheme
+import ir.tivan.controller.ui.theme.CurrentLayout
 import ir.tivan.controller.ui.theme.Tivan
 import ir.tivan.controller.ui.theme.TivanLayout
 
@@ -116,9 +116,9 @@ fun AdaptiveHero(
         }
     }
 
-    when (TivanLayout) {
-        AppTheme.OBSIDIAN ->
-            // No card — a flat block with hairlines, matching Obsidian's identity.
+    when (CurrentLayout) {
+        TivanLayout.FLAT ->
+            // No card — a flat block with hairlines.
             Column(modifier.fillMaxWidth()) {
                 HorizontalDivider(c.stroke)
                 Column(Modifier.padding(vertical = 16.dp)) {
@@ -140,34 +140,7 @@ fun AdaptiveHero(
                 HorizontalDivider(c.stroke)
             }
 
-        AppTheme.INSTRUMENT ->
-            // Bordered technical panel — no gradient fill, a status dot instead
-            // of a big icon tile.
-            Box(
-                modifier
-                    .fillMaxWidth()
-                    .clip(androidx.compose.foundation.shape.RoundedCornerShape(c.cardCorner))
-                    .border(1.dp, border, androidx.compose.foundation.shape.RoundedCornerShape(c.cardCorner))
-            ) {
-                Column(Modifier.padding(16.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            Modifier
-                                .size(10.dp)
-                                .clip(androidx.compose.foundation.shape.CircleShape)
-                                .background(accent)
-                        )
-                        Spacer(Modifier.width(10.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(title, style = MaterialTheme.typography.titleMedium, color = c.text)
-                            Text(subtitle, style = MaterialTheme.typography.labelSmall, color = c.dim)
-                        }
-                    }
-                    statsRow()
-                }
-            }
-
-        AppTheme.LINEN ->
+        TivanLayout.CARD ->
             GlassCard(modifier = modifier.fillMaxWidth(), tint = tint, borderTint = border) {
                 Column(Modifier.padding(18.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {

@@ -20,9 +20,10 @@ import ir.tivan.controller.ui.MainViewModel
 import ir.tivan.controller.ui.components.*
 import ir.tivan.controller.ui.inputs.SegmentButton
 import ir.tivan.controller.ui.security.EmptyHint
-import ir.tivan.controller.ui.theme.AppTheme
+import ir.tivan.controller.ui.theme.CurrentLayout
 import ir.tivan.controller.ui.theme.Tivan
 import ir.tivan.controller.ui.theme.TivanLayout
+import ir.tivan.controller.ui.theme.TivanPalette
 import ir.tivan.controller.util.AppPreferences
 import ir.tivan.controller.util.RelativeTime
 import ir.tivan.controller.util.UiMode
@@ -50,20 +51,19 @@ fun SettingsScreen(viewModel: MainViewModel, prefs: AppPreferences, header: @Com
 
         // Horizontal tab strip — six sections is too many for a bottom bar but
         // fits comfortably here, and keeps each page short enough to scan.
-        // Shape branches by theme like every other screen: Obsidian drops the
-        // pill background for a plain underline, Instrument uses square
-        // bordered chips, Linen keeps the rounded pill.
-        val layout = TivanLayout
+        // Shape branches by layout like every other screen: Flat drops the
+        // pill background for a plain underline, Card keeps the rounded pill.
+        val layout = CurrentLayout
         Row(
             Modifier
                 .horizontalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(if (layout == AppTheme.OBSIDIAN) 18.dp else 7.dp)
+            horizontalArrangement = Arrangement.spacedBy(if (layout == TivanLayout.FLAT) 18.dp else 7.dp)
         ) {
             SettingsTab.entries.forEach { t ->
                 val sel = t == tab
                 when (layout) {
-                    AppTheme.OBSIDIAN ->
+                    TivanLayout.FLAT ->
                         Column(
                             Modifier.clickable { tab = t },
                             horizontalAlignment = Alignment.CenterHorizontally
@@ -82,8 +82,8 @@ fun SettingsScreen(viewModel: MainViewModel, prefs: AppPreferences, header: @Com
                             )
                         }
 
-                    else -> {
-                        val shape = if (layout == AppTheme.INSTRUMENT) RoundedCornerShape(4.dp) else RoundedCornerShape(13.dp)
+                    TivanLayout.CARD -> {
+                        val shape = RoundedCornerShape(13.dp)
                         Row(
                             Modifier
                                 .clip(shape)
@@ -131,18 +131,33 @@ fun SettingsScreen(viewModel: MainViewModel, prefs: AppPreferences, header: @Com
 @Composable
 private fun AppearanceTab(prefs: AppPreferences) {
     val c = Tivan
-    val theme by prefs.theme.collectAsState()
+    val layout by prefs.layout.collectAsState()
+    val palette by prefs.palette.collectAsState()
     val uiMode by prefs.uiMode.collectAsState()
 
-    SettingsGroup("طرح ظاهری") {
+    SettingsGroup("چیدمان") {
         Text(
-            "هر سه طرح روی همه‌ی صفحه‌ها اعمال می‌شود و بلافاصله تغییر می‌کند.",
+            "شکل ساختاری صفحه‌ها — روی همه‌ی تب‌ها اعمال می‌شود و بلافاصله تغییر می‌کند.",
             style = MaterialTheme.typography.labelSmall,
             color = c.dim
         )
         Spacer(Modifier.height(11.dp))
-        AppTheme.entries.forEach { t ->
-            ThemeRow(theme = t, selected = t == theme, onClick = { prefs.setTheme(t) })
+        TivanLayout.entries.forEach { l ->
+            LayoutRow(layout = l, selected = l == layout, onClick = { prefs.setLayout(l) })
+            Spacer(Modifier.height(8.dp))
+        }
+    }
+
+    Spacer(Modifier.height(10.dp))
+    SettingsGroup("پالت رنگی") {
+        Text(
+            "رنگ‌بندی برنامه، مستقل از چیدمان — هر پالتی با هر چیدمانی قابل ترکیب است.",
+            style = MaterialTheme.typography.labelSmall,
+            color = c.dim
+        )
+        Spacer(Modifier.height(11.dp))
+        TivanPalette.entries.forEach { p ->
+            PaletteRow(palette = p, selected = p == palette, onClick = { prefs.setPalette(p) })
             Spacer(Modifier.height(8.dp))
         }
     }
@@ -174,9 +189,8 @@ private fun AppearanceTab(prefs: AppPreferences) {
 }
 
 @Composable
-private fun ThemeRow(theme: AppTheme, selected: Boolean, onClick: () -> Unit) {
+private fun LayoutRow(layout: TivanLayout, selected: Boolean, onClick: () -> Unit) {
     val c = Tivan
-    val tokens = ir.tivan.controller.ui.theme.tokensFor(theme)
     Row(
         Modifier
             .fillMaxWidth()
@@ -191,14 +205,50 @@ private fun ThemeRow(theme: AppTheme, selected: Boolean, onClick: () -> Unit) {
             .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // A tiny live swatch of the theme's own palette, so the picker shows
+        // A tiny swatch showing this layout's own corner radius, so the
+        // picker shows what it means rather than just naming it.
+        Box(
+            Modifier
+                .size(36.dp)
+                .clip(RoundedCornerShape(layout.cardCorner.coerceIn(3.dp, 16.dp)))
+                .background(c.glassStrong)
+                .border(1.dp, c.stroke, RoundedCornerShape(layout.cardCorner.coerceIn(3.dp, 16.dp)))
+        )
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(layout.label, style = MaterialTheme.typography.titleSmall, color = c.text)
+            Text(layout.description, style = MaterialTheme.typography.labelSmall, color = c.dim2)
+        }
+        if (selected) StatusPill("فعال", c.primary)
+    }
+}
+
+@Composable
+private fun PaletteRow(palette: TivanPalette, selected: Boolean, onClick: () -> Unit) {
+    val c = Tivan
+    val tokens = ir.tivan.controller.ui.theme.tokensFor(palette)
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(if (selected) c.primary.copy(alpha = 0.14f) else c.glassStrong)
+            .border(
+                1.dp,
+                if (selected) c.primary.copy(alpha = 0.5f) else c.stroke,
+                RoundedCornerShape(16.dp)
+            )
+            .clickable(onClick = onClick)
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // A tiny live swatch of the palette's own colors, so the picker shows
         // what it means rather than just naming it.
         Box(
             Modifier
                 .size(36.dp)
-                .clip(RoundedCornerShape((tokens.cardCorner.value / 1.6f).dp.coerceIn(3.dp, 16.dp)))
+                .clip(RoundedCornerShape(10.dp))
                 .background(tokens.bg)
-                .border(1.dp, tokens.stroke, RoundedCornerShape((tokens.cardCorner.value / 1.6f).dp.coerceIn(3.dp, 16.dp)))
+                .border(1.dp, tokens.stroke, RoundedCornerShape(10.dp))
         ) {
             Box(
                 Modifier
@@ -210,8 +260,8 @@ private fun ThemeRow(theme: AppTheme, selected: Boolean, onClick: () -> Unit) {
         }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            Text(theme.label, style = MaterialTheme.typography.titleSmall, color = c.text)
-            Text(theme.description, style = MaterialTheme.typography.labelSmall, color = c.dim2)
+            Text(palette.label, style = MaterialTheme.typography.titleSmall, color = c.text)
+            Text(palette.description, style = MaterialTheme.typography.labelSmall, color = c.dim2)
         }
         if (selected) StatusPill("فعال", c.primary)
     }

@@ -19,7 +19,7 @@ import ir.tivan.controller.ui.components.*
 import ir.tivan.controller.ui.outputs.ActionRow
 import ir.tivan.controller.ui.security.EmptyHint
 import ir.tivan.controller.ui.security.LogRow
-import ir.tivan.controller.ui.theme.AppTheme
+import ir.tivan.controller.ui.theme.CurrentLayout
 import ir.tivan.controller.ui.theme.Tivan
 import ir.tivan.controller.ui.theme.TivanLayout
 import ir.tivan.controller.util.RelativeTime
@@ -27,7 +27,7 @@ import ir.tivan.controller.util.RelativeTime
 @Composable
 fun StatusScreen(viewModel: MainViewModel, header: @Composable () -> Unit) {
     val c = Tivan
-    val flat = TivanLayout == AppTheme.OBSIDIAN
+    val flat = CurrentLayout == TivanLayout.FLAT
     val status by viewModel.status.collectAsState()
     val outputs by viewModel.outputs.collectAsState()
     val logs by viewModel.logs.collectAsState()
@@ -155,7 +155,7 @@ private fun StatTile(
         Box(
             modifier
                 .fillMaxWidth()
-                .border(1.dp, c.stroke, androidx.compose.foundation.shape.RoundedCornerShape(c.cardCorner))
+                .border(1.dp, c.stroke, androidx.compose.foundation.shape.RoundedCornerShape(CurrentLayout.cardCorner))
         ) { content() }
     } else {
         GlassCard(modifier.fillMaxWidth(), corner = 14.dp, content = { content() })
@@ -192,7 +192,7 @@ private fun IoStrip(outputs: List<ir.tivan.controller.ui.OutputUi>, flat: Boolea
                 Box(
                     Modifier
                         .weight(1f)
-                        .border(1.dp, c.stroke, androidx.compose.foundation.shape.RoundedCornerShape(c.cardCorner))
+                        .border(1.dp, c.stroke, androidx.compose.foundation.shape.RoundedCornerShape(CurrentLayout.cardCorner))
                 ) { cellContent() }
             } else {
                 GlassCard(Modifier.weight(1f), corner = 10.dp, content = { cellContent() })

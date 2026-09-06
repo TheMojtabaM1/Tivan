@@ -38,7 +38,8 @@ import ir.tivan.controller.ui.status.StatusScreen
 import ir.tivan.controller.ui.theme.Tivan
 import ir.tivan.controller.ui.theme.TivanTheme
 import ir.tivan.controller.ui.onboarding.OnboardingScreen
-import ir.tivan.controller.ui.theme.AppTheme
+import ir.tivan.controller.ui.theme.TivanLayout
+import ir.tivan.controller.ui.theme.TivanPalette
 import ir.tivan.controller.util.AppPreferences
 import ir.tivan.controller.util.RelativeTime
 import ir.tivan.controller.util.SmsPermissions
@@ -80,10 +81,11 @@ class MainActivity : ComponentActivity() {
         if (!SmsPermissions.hasAsked(this)) requestSmsPermissions()
 
         setContent {
-            val appTheme by prefs.theme.collectAsState()
+            val layout by prefs.layout.collectAsState()
+            val palette by prefs.palette.collectAsState()
             val uiMode by prefs.uiMode.collectAsState()
 
-            TivanTheme(appTheme = appTheme) {
+            TivanTheme(layout = layout, palette = palette) {
                 val mode = uiMode
                 if (mode == null) {
                     OnboardingScreen(onChoose = { prefs.setUiMode(it) })

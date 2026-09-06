@@ -1,22 +1,47 @@
 package ir.tivan.controller.ui.theme
 
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+
 /**
- * The three selectable visual identities. Each one fixes its own light/dark
- * character — Obsidian and Instrument are always dark, Linen is always
- * light — rather than layering a separate system dark-mode toggle on top,
- * since that combination was never part of what was designed or tested.
+ * Structural shape of the UI — cards vs. flat hairline-divided blocks. This is
+ * one of the two independent axes the user picks in Settings; the other one
+ * ([TivanPalette]) owns color only. Kept to exactly two values on purpose:
+ * every screen's `when (CurrentLayout) { ... }` branch is meant to stay a
+ * simple binary choice, not grow a third structural shape over time.
  */
-enum class AppTheme(val label: String, val description: String) {
-    OBSIDIAN(
-        "دیجور",
-        "مشکی و شامپاینی، خطوط مویی، بدون کارت — مینیمال و شیک"
+enum class TivanLayout(val label: String, val description: String, val cardCorner: Dp) {
+    FLAT(
+        "تخت",
+        "بدون کارت، خطوط مویی — مینیمال و فشرده",
+        8.dp
     ),
-    LINEN(
-        "کتان",
-        "کاغذ گرم و روشن، کارت‌های نرم گرد — آرام و دوستانه"
+    CARD(
+        "کارتی",
+        "کارت‌های نرم و گرد — آرام و شفاف",
+        24.dp
+    )
+}
+
+/**
+ * Color identity — completely independent of [TivanLayout]. Any palette can be
+ * paired with either layout.
+ */
+enum class TivanPalette(val label: String, val description: String) {
+    CREAM(
+        "کرمی روشن",
+        "کاغذ گرم و روشن — آرام و دوستانه"
     ),
-    INSTRUMENT(
-        "ابزار",
-        "پنل فنی تیره با لهجه‌ی فیروزه‌ای — دقیق و تکنیکال"
+    LIGHT(
+        "روشن",
+        "خاکستری و سفید خنثی — ساده و تمیز"
+    ),
+    DARK(
+        "دارک",
+        "مشکی و شامپاینی — مینیمال و شیک"
+    ),
+    LIQUID_GLASS(
+        "لیکویید گلس",
+        "شیشه‌ای مات و روشن با لهجه‌ی آبی — مدرن و شفاف"
     )
 }
