@@ -46,8 +46,9 @@ object StatusParser {
 
         // ---- outputs: "<name> ON" / "<name> OFF" -------------------------------
         // Candidate names: whatever the user configured, plus the factory defaults.
+        val channels = device.channelCount
         val candidates = buildList {
-            for (i in 0..3) {
+            for (i in 0 until channels) {
                 add(device.outputName(i) to i)
                 add("OUT${i + 1}" to i)
             }
@@ -75,7 +76,7 @@ object StatusParser {
         }
 
         // ---- inputs: custom PAYAMEIN text, or the default "InX Triggered" -------
-        for (i in 0..3) {
+        for (i in 0 until channels) {
             val custom = device.inputMessage(i)
             val default = "IN${i + 1} TRIGGERED"
             val hit = (custom.isNotBlank() && upper.contains(custom.uppercase())) ||
@@ -131,16 +132,16 @@ object StatusParser {
      * clearly pairs a known label with a single digit.
      */
     private fun parseReport(text: String): Pair<Array<Boolean?>, Array<Boolean?>>? {
-        val outs = arrayOfNulls<Boolean>(4)
-        val ins = arrayOfNulls<Boolean>(4)
+        val outs = arrayOfNulls<Boolean>(DeviceStatus.MAX_CHANNELS)
+        val ins = arrayOfNulls<Boolean>(DeviceStatus.MAX_CHANNELS)
         var any = false
 
-        Regex("OUT\\s*([1-4])\\s*[:=\\-]?\\s*([01])\\b", RegexOption.IGNORE_CASE)
+        Regex("OUT\\s*([1-8])\\s*[:=\\-]?\\s*([01])\\b", RegexOption.IGNORE_CASE)
             .findAll(text).forEach {
                 outs[it.groupValues[1].toInt() - 1] = it.groupValues[2] == "1"
                 any = true
             }
-        Regex("IN\\s*([1-4])\\s*[:=\\-]?\\s*([01])\\b", RegexOption.IGNORE_CASE)
+        Regex("IN\\s*([1-8])\\s*[:=\\-]?\\s*([01])\\b", RegexOption.IGNORE_CASE)
             .findAll(text).forEach {
                 ins[it.groupValues[1].toInt() - 1] = it.groupValues[2] == "1"
                 any = true

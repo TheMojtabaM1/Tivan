@@ -1,10 +1,17 @@
 package ir.tivan.controller.ui.components
 
+import android.content.Intent
+import android.provider.ContactsContract
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -16,10 +23,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import ir.tivan.controller.data.Device
 import ir.tivan.controller.ui.theme.Tivan
+import ir.tivan.controller.util.PhoneNumber
 
 /** Compact bar showing which controller the screen is acting on. */
 @Composable
@@ -30,31 +39,44 @@ fun DeviceBar(
     modifier: Modifier = Modifier
 ) {
     val c = Tivan
-    GlassCard(modifier = modifier.fillMaxWidth(), onClick = onOpenSwitcher) {
-        Row(
-            Modifier.padding(11.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconTile(device?.icon ?: "➕", size = 42.dp)
-            Spacer(Modifier.width(11.dp))
-            Column(Modifier.weight(1f)) {
-                Text(
-                    device?.name ?: "دستگاهی اضافه نشده",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = c.text
-                )
-                Text(
-                    device?.phoneNumber ?: "برای افزودن لمس کنید",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = c.dim
-                )
-            }
-            if (antenna != null) {
-                StatusPill(antenna, c.on)
-                Spacer(Modifier.width(8.dp))
-            }
-            Text("▾", style = MaterialTheme.typography.bodyMedium, color = c.dim2)
+    val layout = ir.tivan.controller.ui.theme.CurrentLayout
+    val content: @Composable RowScope.() -> Unit = {
+        IconTile(device?.icon ?: "➕", size = 42.dp)
+        Spacer(Modifier.width(11.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                device?.name ?: "دستگاهی اضافه نشده",
+                style = MaterialTheme.typography.titleMedium,
+                color = c.text
+            )
+            Text(
+                device?.phoneNumber ?: "برای افزودن لمس کنید",
+                style = MaterialTheme.typography.labelSmall,
+                color = c.dim
+            )
         }
+        if (antenna != null) {
+            StatusPill(antenna, c.on)
+            Spacer(Modifier.width(8.dp))
+        }
+        Text("▾", style = MaterialTheme.typography.bodyMedium, color = c.dim2)
+    }
+
+    if (layout == ir.tivan.controller.ui.theme.TivanLayout.CARD) {
+        GlassCard(modifier = modifier.fillMaxWidth(), onClick = onOpenSwitcher) {
+            Row(Modifier.padding(11.dp), verticalAlignment = Alignment.CenterVertically, content = content)
+        }
+    } else {
+        // Flat header row, no card — the device name is plain text, not a
+        // boxed button.
+        Row(
+            modifier
+                .fillMaxWidth()
+                .clickable(onClick = onOpenSwitcher)
+                .padding(vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            content = content
+        )
     }
 }
 
@@ -72,7 +94,7 @@ fun DeviceSwitcherSheet(
     devices: List<Device>,
     selectedId: Long?,
     onSelect: (Long) -> Unit,
-    onAdd: (name: String, phone: String, icon: String) -> Unit,
+    onAdd: (name: String, phone: String, icon: String, channelCount: Int, isManager: Boolean) -> Unit,
     onDelete: (Device) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -81,6 +103,30 @@ fun DeviceSwitcherSheet(
     var name by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
     var icon by remember { mutableStateOf("🏠") }
+    var channelCount by remember { mutableStateOf(4) }
+    var isManager by remember { mutableStateOf(true) }
+
+    val context = LocalContext.current
+    val contactLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val uri = result.data?.data ?: return@rememberLauncherForActivityResult
+        context.contentResolver.query(
+            uri,
+            arrayOf(
+                ContactsContract.CommonDataKinds.Phone.NUMBER,
+                ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME
+            ),
+            null, null, null
+        )?.use { cursor ->
+            if (cursor.moveToFirst()) {
+                val numberIdx = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
+                val nameIdx = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
+                if (numberIdx >= 0) phone = PhoneNumber.normalizeIran(cursor.getString(numberIdx) ?: "")
+                if (nameIdx >= 0) cursor.getString(nameIdx)?.let { name = it }
+            }
+        }
+    }
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
@@ -137,6 +183,60 @@ fun DeviceSwitcherSheet(
                         "شماره سیم‌کارت", phone, { phone = it.filter { ch -> ch.isDigit() } },
                         "09xxxxxxxxx", KeyboardType.Phone
                     )
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = {
+                            contactLauncher.launch(
+                                Intent(
+                                    Intent.ACTION_PICK,
+                                    ContactsContract.CommonDataKinds.Phone.CONTENT_URI
+                                )
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(15.dp)
+                    ) { Text("انتخاب از مخاطبین") }
+                    Spacer(Modifier.height(13.dp))
+                    Text(
+                        "این شماره روی این گوشی چه نقشی دارد؟",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = c.dim
+                    )
+                    Spacer(Modifier.height(7.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        RoleOption(
+                            label = "مدیر",
+                            selected = isManager,
+                            modifier = Modifier.weight(1f),
+                            onClick = { isManager = true }
+                        )
+                        RoleOption(
+                            label = "کاربر عادی",
+                            selected = !isManager,
+                            modifier = Modifier.weight(1f),
+                            onClick = { isManager = false }
+                        )
+                    }
+                    Text(
+                        if (isManager) "دسترسی کامل: نام‌گذاری، تنظیمات و مدیریت کاربران"
+                        else "فقط روشن/خاموش کردن خروجی‌ها و دیدن وضعیت",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = c.dim2,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                    Spacer(Modifier.height(13.dp))
+                    Text("تعداد کانال دستگاه", style = MaterialTheme.typography.labelSmall, color = c.dim)
+                    Spacer(Modifier.height(7.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Device.CHANNEL_OPTIONS.forEach { n ->
+                            ChannelOption(
+                                count = n,
+                                selected = channelCount == n,
+                                modifier = Modifier.weight(1f),
+                                onClick = { channelCount = n }
+                            )
+                        }
+                    }
                     Spacer(Modifier.height(13.dp))
                     Text("آیکون", style = MaterialTheme.typography.labelSmall, color = c.dim)
                     Spacer(Modifier.height(7.dp))
@@ -172,7 +272,7 @@ fun DeviceSwitcherSheet(
                         Button(
                             onClick = {
                                 if (phone.isNotBlank()) {
-                                    onAdd(name, phone, icon)
+                                    onAdd(name, phone, icon, channelCount, isManager)
                                     onDismiss()
                                 }
                             },
@@ -223,6 +323,60 @@ private fun DeviceRow(
 }
 
 @Composable
+private fun RoleOption(
+    label: String,
+    selected: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    val c = Tivan
+    Box(
+        modifier
+            .clip(RoundedCornerShape(14.dp))
+            .background(if (selected) c.primary.copy(alpha = 0.22f) else c.glassStrong)
+            .border(
+                1.dp,
+                if (selected) c.primary.copy(alpha = 0.5f) else c.stroke,
+                RoundedCornerShape(14.dp)
+            )
+            .clickable(onClick = onClick)
+            .padding(vertical = 12.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(label, style = MaterialTheme.typography.labelSmall, color = c.text)
+    }
+}
+
+@Composable
+private fun ChannelOption(
+    count: Int,
+    selected: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    val c = Tivan
+    Box(
+        modifier
+            .clip(RoundedCornerShape(14.dp))
+            .background(if (selected) c.primary.copy(alpha = 0.22f) else c.glassStrong)
+            .border(
+                1.dp,
+                if (selected) c.primary.copy(alpha = 0.5f) else c.stroke,
+                RoundedCornerShape(14.dp)
+            )
+            .clickable(onClick = onClick)
+            .padding(vertical = 12.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            "${ir.tivan.controller.util.RelativeTime.fa(count)} کانال",
+            style = MaterialTheme.typography.labelMedium,
+            color = if (selected) c.text else c.dim2
+        )
+    }
+}
+
+@Composable
 fun LabeledField(
     label: String,
     value: String,
@@ -238,7 +392,8 @@ fun LabeledField(
             value = value,
             onValueChange = onChange,
             placeholder = { Text(placeholder, color = c.dim2) },
-            singleLine = true,
+            minLines = 1,
+            maxLines = 3,
             shape = RoundedCornerShape(15.dp),
             keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
             modifier = Modifier.fillMaxWidth(),
@@ -261,28 +416,33 @@ fun EmojiPicker(
     perRow: Int = 6
 ) {
     val c = Tivan
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        options.chunked(perRow).forEach { row ->
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                row.forEach { e ->
-                    val isSel = e == selected
-                    Box(
-                        Modifier
-                            .size(46.dp)
-                            .clip(RoundedCornerShape(15.dp))
-                            .background(if (isSel) c.primary.copy(alpha = 0.24f) else c.glassStrong)
-                            .border(
-                                1.dp,
-                                if (isSel) c.primary.copy(alpha = 0.55f) else c.stroke,
-                                RoundedCornerShape(15.dp)
-                            )
-                            .clickable { onSelect(e) },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(e, style = MaterialTheme.typography.titleMedium)
-                    }
-                }
-                repeat(perRow - row.size) { Spacer(Modifier.size(46.dp)) }
+    // A bounded, independently-scrollable grid — nesting a plain Column full of
+    // rows inside the dialog's own verticalScroll left the rows past the fold
+    // unreachable, since two nested scroll containers fight over the drag.
+    LazyVerticalGrid(
+        columns = GridCells.Fixed(perRow),
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(max = 220.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        gridItems(options) { e ->
+            val isSel = e == selected
+            Box(
+                Modifier
+                    .size(46.dp)
+                    .clip(RoundedCornerShape(15.dp))
+                    .background(if (isSel) c.primary.copy(alpha = 0.24f) else c.glassStrong)
+                    .border(
+                        1.dp,
+                        if (isSel) c.primary.copy(alpha = 0.55f) else c.stroke,
+                        RoundedCornerShape(15.dp)
+                    )
+                    .clickable { onSelect(e) },
+                contentAlignment = Alignment.Center
+            ) {
+                Text(e, style = MaterialTheme.typography.titleMedium)
             }
         }
     }

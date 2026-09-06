@@ -11,7 +11,11 @@ android/captures/
 
 # keep everything else in the repo untouched
 
-# release signing — never commit keys
+# release signing — never commit real release keys
 android/keystore.properties
 *.jks
 *.keystore
+# ...except the fixed CI/debug keystore below: it's not a real release key
+# (standard "android"/"androiddebugkey" credentials), checked in on purpose
+# so every CI build is signed identically and installs as an update.
+!android/app/keystore/tivan-ci-debug.keystore

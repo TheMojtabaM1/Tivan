@@ -1,5 +1,6 @@
 package ir.tivan.controller.data
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
@@ -16,6 +17,21 @@ data class Device(
     val name: String,
     val phoneNumber: String,
     val icon: String = "🏠",
+
+    /**
+     * Whether the phone number this app runs on is registered as the
+     * device's main/sub manager (per the manual: managers can rename
+     * channels, define sub-managers, and change settings; regular users
+     * can only view status and switch outputs). Chosen once when the
+     * device is added; drives which controls the app itself exposes —
+     * the controller enforces the real restriction on its own.
+     */
+    @ColumnInfo(defaultValue = "1")
+    val isManager: Boolean = true,
+
+    /** How many output/input channels this controller has: 2, 4, or 8. */
+    @ColumnInfo(defaultValue = "4")
+    val channelCount: Int = 4,
 
     /** NAMEOUT1..4 — max 14 chars each, as sent back in reports ("PUMP ON"). */
     val outputNames: List<String> = DEFAULT_OUTPUT_NAMES,
@@ -61,6 +77,9 @@ data class Device(
             ?: DEFAULT_INPUT_ICONS.getOrElse(index) { "📥" }
 
     companion object {
+        /** The only channel counts the S44T family ships in. */
+        val CHANNEL_OPTIONS = listOf(2, 4, 8)
+
         val DEFAULT_OUTPUT_NAMES = listOf("OUT1", "OUT2", "OUT3", "OUT4")
         val DEFAULT_INPUT_MESSAGES =
             listOf("In1 Triggered", "In2 Triggered", "In3 Triggered", "In4 Triggered")
@@ -69,9 +88,34 @@ data class Device(
 
         /** Emoji offered in the rename sheet for outputs and inputs. */
         val ICON_CHOICES = listOf(
-            "💡", "🔌", "💧", "🚪", "🌀", "🔥", "❄️", "🌱",
-            "🚜", "🏭", "🅿️", "🔔", "📷", "👁", "💨", "🛗",
-            "⚡", "🪟", "🚿", "🧊", "☀️", "🌡", "🔒", "📡"
+            // خانه و فضا
+            "💡", "🔌", "🏠", "🏡", "🏢", "🏪", "🏭", "🏗️",
+            "🚪", "🪟", "🛗", "🧱", "🪜", "🏚️", "⛩️", "🏘️",
+            // آب و لوله‌کشی
+            "💧", "🚿", "🚰", "🛁", "🌊", "💦", "🚽", "🪣",
+            // برق و انرژی
+            "⚡", "🔋", "🪫", "🔦", "🕯️", "💡", "🧯", "🔥",
+            // آب و هوا و دما
+            "☀️", "🌤️", "⛅", "🌩️", "❄️", "🧊", "🌡️", "☔",
+            "🌪️", "🌫️", "🌬️", "🌈", "⛈️", "🌙", "⭐", "🌞",
+            // امنیت و هشدار
+            "🔒", "🔓", "🚨", "🛡️", "🔔", "🔕", "⚠️", "🚧",
+            "📷", "👁️", "🎥", "🕵️", "🗝️", "🔑", "🚔", "🆘",
+            // تهویه و صنعتی
+            "🌀", "🌱", "🚜", "🏭", "⚙️", "🔧", "🔩", "🛠️",
+            "🪛", "🧰", "🧲", "🔬", "🧭", "📡", "🛰️", "📶",
+            // درب و پارکینگ و حمل‌ونقل
+            "🅿️", "🚗", "🚲", "🛵", "🚦", "🚏", "🛗", "🚁",
+            // صدا و اعلان
+            "🔊", "🔇", "🔈", "📢", "📣", "🎵", "🚦", "⏱️",
+            // طبیعت
+            "🌳", "🌴", "🌵", "🍃", "🌸", "🌻", "🐝", "🐟",
+            "🦟", "🐛", "🐦", "🐕", "🐈", "🌾", "🍀", "🌺",
+            // آشپزخانه و خانگی
+            "🍳", "🧺", "🧴", "🧼", "🛋️", "🛏️", "🪑", "📺",
+            // علائم و اعداد
+            "❤️", "✅", "❌", "❗", "❓", "➕", "➖", "🔁",
+            "1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣"
         )
     }
 }

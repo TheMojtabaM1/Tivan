@@ -13,13 +13,18 @@ import androidx.room.PrimaryKey
  * old while the output states are seconds old. The UI renders each timestamp as
  * "۳ دقیقه پیش" underneath the value so stale data is never mistaken for live data.
  * A `*At` of 0 means "never received".
+ *
+ * All per-channel fields are sized for [MAX_CHANNELS] (the largest S44T variant)
+ * regardless of a given device's actual [Device.channelCount] — indices past a
+ * device's real channel count are simply never read, which keeps this entity
+ * independent of channel count and avoids a schema change if that ever grows.
  */
 @Entity(tableName = "device_status")
 data class DeviceStatus(
     @PrimaryKey val deviceId: Long,
 
     /** "1" = on, "0" = off, "?" = unknown — one char per output. */
-    val outputStates: String = "????",
+    val outputStates: String = "????????",
     val outputsAt: Long = 0,
 
     /**
@@ -27,7 +32,7 @@ data class DeviceStatus(
      * "?" = unknown. Only REPORT writes here — a trigger notification is an
      * event, not a state, and belongs in [inputTriggeredAt].
      */
-    val inputStates: String = "????",
+    val inputStates: String = "????????",
     val inputsAt: Long = 0,
 
     /**
@@ -36,8 +41,12 @@ data class DeviceStatus(
      * input tripping cannot make the other three look like they just fired —
      * and so a past trigger cannot pin an input to "triggered" forever.
      */
+    // The SQL DEFAULT clause deliberately still says "0,0,0,0" — it must match
+    // the v3 schema exactly, or Room's post-migration validation fails. It only
+    // matters for a raw INSERT that omits this column, which Room's generated
+    // code never does; the Kotlin-side default below is what code actually sees.
     @ColumnInfo(defaultValue = "0,0,0,0")
-    val inputTriggeredAt: List<Long> = listOf(0, 0, 0, 0),
+    val inputTriggeredAt: List<Long> = List(MAX_CHANNELS) { 0L },
 
     val securityArmed: Boolean? = null,
     val securityAt: Long = 0,
@@ -73,12 +82,12 @@ data class DeviceStatus(
 
     /** Records a trigger event without touching the live state. */
     fun withInputTriggered(index: Int, at: Long): DeviceStatus {
-        if (index !in 0..3) return this
-        val times = inputTriggeredAt.padTo4()
+        if (index !in 0 until MAX_CHANNELS) return this
+        val times = inputTriggeredAt.padToMax()
         return copy(inputTriggeredAt = times.toMutableList().also { it[index] = at })
     }
 
-    fun triggeredAt(index: Int): Long = inputTriggeredAt.padTo4().getOrElse(index) { 0L }
+    fun triggeredAt(index: Int): Long = inputTriggeredAt.padToMax().getOrElse(index) { 0L }
 
     /**
      * True only while a trigger is fresh. Without a window the badge would stay
@@ -90,6 +99,9 @@ data class DeviceStatus(
     }
 
     companion object {
+        /** The largest channel count any S44T variant ships. */
+        const val MAX_CHANNELS = 8
+
         /** How long an input keeps its "just triggered" highlight. */
         const val TRIGGER_HIGHLIGHT_MS = 5 * 60 * 1000L
 
@@ -97,8 +109,9 @@ data class DeviceStatus(
     }
 }
 
-private fun List<Long>.padTo4(): List<Long> =
-    if (size >= 4) this else this + List(4 - size) { 0L }
+private fun List<Long>.padToMax(): List<Long> =
+    if (size >= DeviceStatus.MAX_CHANNELS) this
+    else this + List(DeviceStatus.MAX_CHANNELS - size) { 0L }
 
 private fun Char?.toTriState(): Boolean? = when (this) {
     '1' -> true
@@ -107,7 +120,7 @@ private fun Char?.toTriState(): Boolean? = when (this) {
 }
 
 private fun String.replaceAt(index: Int, c: Char): String {
-    val padded = padEnd(4, '?')
-    if (index !in 0..3) return padded
+    val padded = padEnd(DeviceStatus.MAX_CHANNELS, '?')
+    if (index !in 0 until DeviceStatus.MAX_CHANNELS) return padded
     return padded.toCharArray().also { it[index] = c }.concatToString()
 }

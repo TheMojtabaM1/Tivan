@@ -118,5 +118,44 @@ object Migrations {
         }
     }
 
-    val ALL = arrayOf(MIGRATION_1_2, MIGRATION_2_3)
+    /**
+     * v3 → v4: how many channels a controller has (2, 4 or 8).
+     *
+     * A plain ADD COLUMN is safe here — Room's schema validation compares
+     * column properties (name, type, not-null, default), not the physical
+     * order ALTER TABLE appends in, and the default matches the Kotlin default
+     * exactly. Existing devices default to 4, which is what every device
+     * added before this version actually was.
+     */
+    val MIGRATION_3_4 = object : Migration(3, 4) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE devices ADD COLUMN channelCount INTEGER NOT NULL DEFAULT 4")
+        }
+    }
+
+    val MIGRATION_4_5 = object : Migration(4, 5) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE devices ADD COLUMN isManager INTEGER NOT NULL DEFAULT 1")
+        }
+    }
+
+    val MIGRATION_5_6 = object : Migration(5, 6) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `schedules` (" +
+                    "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                    "`deviceId` INTEGER NOT NULL, " +
+                    "`isOutput` INTEGER NOT NULL, " +
+                    "`channelIndex` INTEGER NOT NULL, " +
+                    "`days` INTEGER NOT NULL, " +
+                    "`startHour` INTEGER NOT NULL, " +
+                    "`startMinute` INTEGER NOT NULL, " +
+                    "`endHour` INTEGER NOT NULL, " +
+                    "`endMinute` INTEGER NOT NULL, " +
+                    "`enabled` INTEGER NOT NULL DEFAULT 1)"
+            )
+        }
+    }
+
+    val ALL = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
 }

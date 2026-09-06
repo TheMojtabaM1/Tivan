@@ -13,16 +13,23 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import ir.tivan.controller.ui.MainViewModel
 import ir.tivan.controller.ui.components.*
 import ir.tivan.controller.ui.inputs.SegmentButton
 import ir.tivan.controller.ui.security.EmptyHint
+import ir.tivan.controller.ui.theme.CurrentLayout
 import ir.tivan.controller.ui.theme.Tivan
+import ir.tivan.controller.ui.theme.TivanLayout
+import ir.tivan.controller.ui.theme.TivanPalette
+import ir.tivan.controller.util.AppPreferences
 import ir.tivan.controller.util.RelativeTime
+import ir.tivan.controller.util.UiMode
 
 private enum class SettingsTab(val label: String, val emoji: String) {
+    Appearance("نما", "🎨"),
     Numbers("شماره‌ها", "👤"),
     Reports("گزارش", "🔔"),
     Outputs("خروجی", "⏱"),
@@ -32,9 +39,11 @@ private enum class SettingsTab(val label: String, val emoji: String) {
 }
 
 @Composable
-fun SettingsScreen(viewModel: MainViewModel, header: @Composable () -> Unit) {
+fun SettingsScreen(viewModel: MainViewModel, prefs: AppPreferences, header: @Composable () -> Unit) {
     val c = Tivan
     var tab by remember { mutableStateOf(SettingsTab.Numbers) }
+    val device by viewModel.selectedDevice.collectAsState()
+    val isManager = device?.isManager != false
 
     Column(Modifier.fillMaxSize()) {
         Column(Modifier.padding(horizontal = 16.dp)) {
@@ -44,34 +53,57 @@ fun SettingsScreen(viewModel: MainViewModel, header: @Composable () -> Unit) {
 
         // Horizontal tab strip — six sections is too many for a bottom bar but
         // fits comfortably here, and keeps each page short enough to scan.
+        // Shape branches by layout like every other screen: Flat drops the
+        // pill background for a plain underline, Card keeps the rounded pill.
+        val layout = CurrentLayout
         Row(
             Modifier
                 .horizontalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(7.dp)
+            horizontalArrangement = Arrangement.spacedBy(if (layout == TivanLayout.FLAT) 18.dp else 7.dp)
         ) {
             SettingsTab.entries.forEach { t ->
                 val sel = t == tab
-                Row(
-                    Modifier
-                        .clip(RoundedCornerShape(13.dp))
-                        .background(if (sel) c.primary.copy(alpha = 0.22f) else c.glassStrong)
-                        .border(
-                            1.dp,
-                            if (sel) c.primary.copy(alpha = 0.5f) else c.stroke,
-                            RoundedCornerShape(13.dp)
-                        )
-                        .clickable { tab = t }
-                        .padding(horizontal = 12.dp, vertical = 9.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(t.emoji, style = MaterialTheme.typography.labelMedium)
-                    Spacer(Modifier.width(6.dp))
-                    Text(
-                        t.label,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = if (sel) c.text else c.dim2
-                    )
+                when (layout) {
+                    TivanLayout.FLAT ->
+                        Column(
+                            Modifier.clickable { tab = t },
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                t.label,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = if (sel) c.text else c.dim2
+                            )
+                            Spacer(Modifier.height(6.dp))
+                            Box(
+                                Modifier
+                                    .width(22.dp)
+                                    .height(2.dp)
+                                    .background(if (sel) c.primary else Color.Transparent)
+                            )
+                        }
+
+                    TivanLayout.CARD -> {
+                        val shape = RoundedCornerShape(13.dp)
+                        Row(
+                            Modifier
+                                .clip(shape)
+                                .background(if (sel) c.primary.copy(alpha = 0.22f) else c.glassStrong)
+                                .border(1.dp, if (sel) c.primary.copy(alpha = 0.5f) else c.stroke, shape)
+                                .clickable { tab = t }
+                                .padding(horizontal = 12.dp, vertical = 9.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(t.emoji, style = MaterialTheme.typography.labelMedium)
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                t.label,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = if (sel) c.text else c.dim2
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -83,7 +115,14 @@ fun SettingsScreen(viewModel: MainViewModel, header: @Composable () -> Unit) {
                 .padding(horizontal = 16.dp)
                 .padding(top = 14.dp)
         ) {
-            when (tab) {
+            if (tab != SettingsTab.Appearance && !isManager) {
+                Text(
+                    "این بخش فقط برای مدیر دستگاه در دسترس است. این شماره به‌عنوان کاربر عادی ثبت شده و فقط اجازه‌ی روشن/خاموش کردن خروجی‌ها و مشاهده‌ی وضعیت را دارد.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = c.dim
+                )
+            } else when (tab) {
+                SettingsTab.Appearance -> AppearanceTab(prefs)
                 SettingsTab.Numbers -> NumbersTab(viewModel)
                 SettingsTab.Reports -> ReportsTab(viewModel)
                 SettingsTab.Outputs -> OutputsTab(viewModel)
@@ -93,6 +132,171 @@ fun SettingsScreen(viewModel: MainViewModel, header: @Composable () -> Unit) {
             }
             Spacer(Modifier.height(28.dp))
         }
+    }
+}
+
+// -------------------------------------------------------------- appearance ---
+@Composable
+private fun AppearanceTab(prefs: AppPreferences) {
+    val c = Tivan
+    val layout by prefs.layout.collectAsState()
+    val palette by prefs.palette.collectAsState()
+    val uiMode by prefs.uiMode.collectAsState()
+
+    SettingsGroup("چیدمان") {
+        Text(
+            "شکل ساختاری صفحه‌ها — روی همه‌ی تب‌ها اعمال می‌شود و بلافاصله تغییر می‌کند.",
+            style = MaterialTheme.typography.labelSmall,
+            color = c.dim
+        )
+        Spacer(Modifier.height(11.dp))
+        TivanLayout.entries.forEach { l ->
+            LayoutRow(layout = l, selected = l == layout, onClick = { prefs.setLayout(l) })
+            Spacer(Modifier.height(8.dp))
+        }
+    }
+
+    Spacer(Modifier.height(10.dp))
+    SettingsGroup("پالت رنگی") {
+        Text(
+            "رنگ‌بندی برنامه، مستقل از چیدمان — هر پالتی با هر چیدمانی قابل ترکیب است.",
+            style = MaterialTheme.typography.labelSmall,
+            color = c.dim
+        )
+        Spacer(Modifier.height(11.dp))
+        TivanPalette.entries.forEach { p ->
+            PaletteRow(palette = p, selected = p == palette, onClick = { prefs.setPalette(p) })
+            Spacer(Modifier.height(8.dp))
+        }
+    }
+
+    Spacer(Modifier.height(10.dp))
+    SettingsGroup("حالت نمایش") {
+        Text(
+            "حالت ساده فقط کنترل خروجی‌ها و دزدگیر را جلوی چشم می‌گذارد؛ بقیه‌ی " +
+                "تنظیمات همچنان از همین‌جا در دسترس‌اند. حالت پیشرفته همه‌ی تب‌ها را نشان می‌دهد.",
+            style = MaterialTheme.typography.labelSmall,
+            color = c.dim
+        )
+        Spacer(Modifier.height(11.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            SegmentButton(
+                text = "ساده",
+                selected = uiMode == UiMode.SIMPLE,
+                modifier = Modifier.weight(1f),
+                onClick = { prefs.setUiMode(UiMode.SIMPLE) }
+            )
+            SegmentButton(
+                text = "پیشرفته",
+                selected = uiMode == UiMode.ADVANCED,
+                modifier = Modifier.weight(1f),
+                onClick = { prefs.setUiMode(UiMode.ADVANCED) }
+            )
+        }
+    }
+
+    Spacer(Modifier.height(10.dp))
+    SettingsGroup("اعلام صوتی") {
+        val voiceEnabled by prefs.voiceEnabled.collectAsState()
+        Text(
+            "با هر تغییر واقعی وضعیت خروجی یا دزدگیر (پس از تأیید دستگاه) یا اجرای زمان‌بندی، برنامه با صدای پیش‌فرض اندروید آن را اعلام می‌کند.",
+            style = MaterialTheme.typography.labelSmall,
+            color = c.dim
+        )
+        Spacer(Modifier.height(11.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            SegmentButton(
+                text = "روشن",
+                selected = voiceEnabled,
+                modifier = Modifier.weight(1f),
+                onClick = { prefs.setVoiceEnabled(true) }
+            )
+            SegmentButton(
+                text = "خاموش",
+                selected = !voiceEnabled,
+                modifier = Modifier.weight(1f),
+                onClick = { prefs.setVoiceEnabled(false) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun LayoutRow(layout: TivanLayout, selected: Boolean, onClick: () -> Unit) {
+    val c = Tivan
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(if (selected) c.primary.copy(alpha = 0.14f) else c.glassStrong)
+            .border(
+                1.dp,
+                if (selected) c.primary.copy(alpha = 0.5f) else c.stroke,
+                RoundedCornerShape(16.dp)
+            )
+            .clickable(onClick = onClick)
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // A tiny swatch showing this layout's own corner radius, so the
+        // picker shows what it means rather than just naming it.
+        Box(
+            Modifier
+                .size(36.dp)
+                .clip(RoundedCornerShape(layout.cardCorner.coerceIn(3.dp, 16.dp)))
+                .background(c.glassStrong)
+                .border(1.dp, c.stroke, RoundedCornerShape(layout.cardCorner.coerceIn(3.dp, 16.dp)))
+        )
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(layout.label, style = MaterialTheme.typography.titleSmall, color = c.text)
+            Text(layout.description, style = MaterialTheme.typography.labelSmall, color = c.dim2)
+        }
+        if (selected) StatusPill("فعال", c.primary)
+    }
+}
+
+@Composable
+private fun PaletteRow(palette: TivanPalette, selected: Boolean, onClick: () -> Unit) {
+    val c = Tivan
+    val tokens = ir.tivan.controller.ui.theme.tokensFor(palette)
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(if (selected) c.primary.copy(alpha = 0.14f) else c.glassStrong)
+            .border(
+                1.dp,
+                if (selected) c.primary.copy(alpha = 0.5f) else c.stroke,
+                RoundedCornerShape(16.dp)
+            )
+            .clickable(onClick = onClick)
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // A tiny live swatch of the palette's own colors, so the picker shows
+        // what it means rather than just naming it.
+        Box(
+            Modifier
+                .size(36.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(tokens.bg)
+                .border(1.dp, tokens.stroke, RoundedCornerShape(10.dp))
+        ) {
+            Box(
+                Modifier
+                    .padding(6.dp)
+                    .size(10.dp)
+                    .clip(RoundedCornerShape(3.dp))
+                    .background(tokens.primary)
+            )
+        }
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(palette.label, style = MaterialTheme.typography.titleSmall, color = c.text)
+            Text(palette.description, style = MaterialTheme.typography.labelSmall, color = c.dim2)
+        }
+        if (selected) StatusPill("فعال", c.primary)
     }
 }
 
@@ -232,6 +436,8 @@ private fun ReportsTab(viewModel: MainViewModel) {
 @Composable
 private fun OutputsTab(viewModel: MainViewModel) {
     val c = Tivan
+    val device by viewModel.selectedDevice.collectAsState()
+    val channelCount = device?.channelCount ?: 4
     var output by remember { mutableStateOf(1) }
     var minutes by remember { mutableStateOf("10") }
 
@@ -245,15 +451,21 @@ private fun OutputsTab(viewModel: MainViewModel) {
         Spacer(Modifier.height(12.dp))
         Text("خروجی", style = MaterialTheme.typography.labelSmall, color = c.dim)
         Spacer(Modifier.height(7.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-            (1..4).forEach { n ->
-                SegmentButton(
-                    text = RelativeTime.fa(n),
-                    selected = output == n,
-                    modifier = Modifier.weight(1f),
-                    onClick = { output = n }
-                )
+        // Wrapped into rows of 4 so 8-channel devices don't squeeze the buttons
+        // down to an unreadable width.
+        (1..channelCount).chunked(4).forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                row.forEach { n ->
+                    SegmentButton(
+                        text = RelativeTime.fa(n),
+                        selected = output == n,
+                        modifier = Modifier.weight(1f),
+                        onClick = { output = n }
+                    )
+                }
+                repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
             }
+            Spacer(Modifier.height(7.dp))
         }
         Spacer(Modifier.height(12.dp))
         LabeledField(

@@ -1,6 +1,7 @@
 package ir.tivan.controller.ui
 
 import android.app.Application
+import androidx.core.content.edit
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import ir.tivan.controller.TivanApp
@@ -19,7 +20,10 @@ import kotlinx.coroutines.launch
 /** What the UI shows for one relay output. */
 data class OutputUi(
     val index: Int,
+    /** What's shown in the UI — the local display name if set, else [deviceName]. */
     val name: String,
+    /** The name the controller itself echoes in reports; what a device rename sends. */
+    val deviceName: String,
     val icon: String,
     val on: Boolean?,          // null = never heard from the device
     val pending: Boolean,
@@ -30,6 +34,7 @@ data class OutputUi(
 data class InputUi(
     val index: Int,
     val message: String,
+    val deviceMessage: String,
     val icon: String,
     /** 0 = OFF, 1 = N.O, 2 = N.C. */
     val mode: Int,
@@ -49,6 +54,41 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private val tivanApp get() = getApplication<TivanApp>()
     private val repo get() = tivanApp.repository
+    private val prefs by lazy { ir.tivan.controller.util.AppPreferences(tivanApp) }
+
+    private fun speak(text: String) {
+        if (prefs.voiceEnabled.value) ir.tivan.controller.tts.TivanSpeaker.speak(text)
+    }
+
+    // ---- local-only display names --------------------------------------------
+    // The controller echoes device.outputName/inputMessage in every SMS report,
+    // and StatusParser matches against exactly that string — so it must stay
+    // ASCII and in sync with what NAMEOUTx/PAYAMEINx set on the device. A
+    // separate, purely cosmetic override lets the app show a Persian (or just
+    // nicer) label without touching that SMS contract at all.
+    private val displayNamePrefs =
+        getApplication<Application>().getSharedPreferences("display_names", android.content.Context.MODE_PRIVATE)
+    private val _displayNames = MutableStateFlow(displayNamePrefs.all.mapValues { it.value as String })
+
+    private fun displayKey(deviceId: Long, output: Boolean, index: Int) =
+        "${deviceId}_${if (output) "out" else "in"}_$index"
+
+    fun setDisplayName(deviceId: Long, output: Boolean, index: Int, name: String) {
+        val key = displayKey(deviceId, output, index)
+        val clean = name.trim()
+        val changed = _displayNames.value[key] != clean.ifBlank { null }
+        displayNamePrefs.edit {
+            if (clean.isBlank()) remove(key) else putString(key, clean)
+        }
+        _displayNames.update { m ->
+            if (clean.isBlank()) m - key else m + (key to clean)
+        }
+        if (changed) {
+            viewModelScope.launch {
+                emitToast(if (clean.isBlank()) "نام نمایشی حذف شد" else "نام نمایشی ذخیره شد")
+            }
+        }
+    }
 
     val devices: StateFlow<List<Device>> =
         repo.devices.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -89,11 +129,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val alarm: StateFlow<Int?> = _alarm.asStateFlow()
 
     val outputs: StateFlow<List<OutputUi>> =
-        combine(selectedDevice, status, _pendingOutputs) { device, st, pending ->
-            (0..3).map { i ->
+        combine(selectedDevice, status, _pendingOutputs, _displayNames) { device, st, pending, display ->
+            val count = device?.channelCount ?: 4
+            (0 until count).map { i ->
+                val deviceName = device?.outputName(i) ?: "OUT${i + 1}"
                 OutputUi(
                     index = i,
-                    name = device?.outputName(i) ?: "OUT${i + 1}",
+                    name = device?.let { display[displayKey(it.id, true, i)] } ?: deviceName,
+                    deviceName = deviceName,
                     icon = device?.outputIcon(i) ?: "🔌",
                     on = st?.output(i),
                     pending = pending.containsKey(i),
@@ -113,11 +156,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     val inputs: StateFlow<List<InputUi>> =
-        combine(selectedDevice, status, highlightTicker) { device, st, now ->
-            (0..3).map { i ->
+        combine(selectedDevice, status, highlightTicker, _displayNames) { device, st, now, display ->
+            val count = device?.channelCount ?: 4
+            (0 until count).map { i ->
+                val deviceMessage = device?.inputMessage(i) ?: "In${i + 1} Triggered"
                 InputUi(
                     index = i,
-                    message = device?.inputMessage(i) ?: "In${i + 1} Triggered",
+                    message = device?.let { display[displayKey(it.id, false, i)] } ?: deviceMessage,
+                    deviceMessage = deviceMessage,
                     icon = device?.inputIcon(i) ?: "📥",
                     mode = device?.inputModes?.getOrNull(i) ?: 1,
                     closed = st?.input(i),
@@ -160,6 +206,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 stillPending.remove(index)
                 cancelTimeout("out$index")
                 settled = true
+                speak("${device.outputName(index)} ${if (target) "روشن شد" else "خاموش شد"}")
             }
         }
         if (settled) _pendingOutputs.value = stillPending
@@ -169,6 +216,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 _pendingSecurity.value = null
                 cancelTimeout("sec")
                 emitToast(if (target) "دزدگیر فعال شد" else "دزدگیر غیرفعال شد")
+                speak(if (target) "دزدگیر فعال شد" else "دزدگیر غیرفعال شد")
             }
         }
 
@@ -257,9 +305,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     // ---- device management --------------------------------------------------
     fun selectDevice(id: Long) = repo.selectDevice(id)
 
-    fun addDevice(name: String, phone: String, icon: String) {
+    fun addDevice(name: String, phone: String, icon: String, channelCount: Int = 4, isManager: Boolean = true) {
         viewModelScope.launch {
-            repo.addDevice(name.ifBlank { "دستگاه جدید" }, phone, icon)
+            repo.addDevice(name.ifBlank { "دستگاه جدید" }, phone, icon, channelCount, isManager)
             emitToast("دستگاه اضافه شد")
         }
     }
@@ -283,40 +331,50 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      */
     fun renameOutput(index: Int, name: String, icon: String) {
         val clean = name.take(14).trim()
+        val before = selectedDevice.value?.outputName(index)
         updateDevice { d ->
             d.copy(
-                outputNames = d.outputNames.padTo(4, Device.DEFAULT_OUTPUT_NAMES)
+                outputNames = d.outputNames.padTo(d.channelCount) { "OUT${it + 1}" }
                     .replaceAt(index, clean.ifBlank { "OUT${index + 1}" }),
-                outputIcons = d.outputIcons.padTo(4, Device.DEFAULT_OUTPUT_ICONS)
-                    .replaceAt(index, icon)
+                outputIcons = d.outputIcons.padTo(d.channelCount) { i ->
+                    Device.DEFAULT_OUTPUT_ICONS.getOrElse(i) { "🔌" }
+                }.replaceAt(index, icon)
             )
         }
-        if (clean.isNotBlank()) sendCommand("NAMEOUT${index + 1}:$clean", "نام خروجی ${index + 1} تغییر کرد")
+        // Only bother the device with an SMS when its own name actually changed —
+        // a display-name-only edit shouldn't resend an unchanged NAMEOUTx.
+        if (clean.isNotBlank() && clean != before) {
+            sendCommand("NAMEOUT${index + 1}:$clean", "نام خروجی ${index + 1} تغییر کرد")
+        }
     }
 
     fun setInputMessage(index: Int, message: String, icon: String) {
         val clean = message.take(24).trim()
+        val before = selectedDevice.value?.inputMessage(index)
         updateDevice { d ->
             d.copy(
-                inputMessages = d.inputMessages.padTo(4, Device.DEFAULT_INPUT_MESSAGES)
+                inputMessages = d.inputMessages.padTo(d.channelCount) { "In${it + 1} Triggered" }
                     .replaceAt(index, clean.ifBlank { "In${index + 1} Triggered" }),
-                inputIcons = d.inputIcons.padTo(4, Device.DEFAULT_INPUT_ICONS)
-                    .replaceAt(index, icon)
+                inputIcons = d.inputIcons.padTo(d.channelCount) { i ->
+                    Device.DEFAULT_INPUT_ICONS.getOrElse(i) { "📥" }
+                }.replaceAt(index, icon)
             )
         }
-        if (clean.isNotBlank()) sendCommand("PAYAMEIN${index + 1}:$clean", "پیام ورودی ${index + 1} تغییر کرد")
+        if (clean.isNotBlank() && clean != before) {
+            sendCommand("PAYAMEIN${index + 1}:$clean", "پیام ورودی ${index + 1} تغییر کرد")
+        }
     }
 
     fun setInputMode(index: Int, mode: Int) {
         updateDevice { d ->
-            d.copy(inputModes = d.inputModes.padTo(4, listOf(1, 1, 1, 1)).replaceAt(index, mode))
+            d.copy(inputModes = d.inputModes.padTo(d.channelCount) { 1 }.replaceAt(index, mode))
         }
         sendCommand("MODE${index + 1}$mode")
     }
 
     fun setInputResponse(index: Int, level: Int) {
         updateDevice { d ->
-            d.copy(inputResponses = d.inputResponses.padTo(4, listOf(0, 0, 0, 0)).replaceAt(index, level))
+            d.copy(inputResponses = d.inputResponses.padTo(d.channelCount) { 0 }.replaceAt(index, level))
         }
         sendCommand("SET${index + 1}$level")
     }
@@ -369,6 +427,44 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _toast.emit(Toast(System.nanoTime(), text))
     }
 
+    // ---- schedules ------------------------------------------------------------
+    fun schedulesFor(outputIndex: Int) = selectedDevice.value?.let { device ->
+        tivanApp.database.scheduleDao().observeFor(device.id, isOutput = true, channelIndex = outputIndex)
+    } ?: kotlinx.coroutines.flow.flowOf(emptyList())
+
+    fun addSchedule(
+        outputIndex: Int,
+        days: Int,
+        startHour: Int,
+        startMinute: Int,
+        endHour: Int,
+        endMinute: Int
+    ) {
+        val device = selectedDevice.value ?: return
+        viewModelScope.launch {
+            val schedule = ir.tivan.controller.data.Schedule(
+                deviceId = device.id,
+                isOutput = true,
+                channelIndex = outputIndex,
+                days = days,
+                startHour = startHour,
+                startMinute = startMinute,
+                endHour = endHour,
+                endMinute = endMinute
+            )
+            val id = tivanApp.database.scheduleDao().insert(schedule)
+            ir.tivan.controller.schedule.ScheduleScheduler.arm(tivanApp, schedule.copy(id = id))
+            emitToast("زمان‌بندی ذخیره شد")
+        }
+    }
+
+    fun deleteSchedule(schedule: ir.tivan.controller.data.Schedule) {
+        viewModelScope.launch {
+            ir.tivan.controller.schedule.ScheduleScheduler.disarm(tivanApp, schedule)
+            tivanApp.database.scheduleDao().delete(schedule)
+        }
+    }
+
     override fun onCleared() {
         timeoutJobs.values.forEach { it.cancel() }
         timeoutJobs.clear()
@@ -381,9 +477,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 }
 
-private fun <T> List<T>.padTo(size: Int, defaults: List<T>): List<T> {
+private fun <T> List<T>.padTo(size: Int, default: (index: Int) -> T): List<T> {
     if (this.size >= size) return this
-    return this + (this.size until size).map { defaults[it] }
+    return this + (this.size until size).map(default)
 }
 
 private fun <T> List<T>.replaceAt(index: Int, value: T): List<T> =
