@@ -37,10 +37,7 @@ fun OutputsScreen(viewModel: MainViewModel, header: @Composable () -> Unit) {
     var renaming by remember { mutableStateOf<Int?>(null) }
     var timerFor by remember { mutableStateOf<Int?>(null) }
 
-    val onToggle: (Int) -> Unit = { i ->
-        val target = outputs[i].pendingTarget ?: (outputs[i].on != true)
-        viewModel.toggleOutput(i, target)
-    }
+    val onSet: (Int, Boolean) -> Unit = { i, target -> viewModel.toggleOutput(i, target) }
 
     // One scroll container for the whole tab. Every screen does this — the old
     // build nested a fixed-height grid inside a static Column, so anything past
@@ -59,13 +56,18 @@ fun OutputsScreen(viewModel: MainViewModel, header: @Composable () -> Unit) {
             TivanLayout.CARD ->
                 // 2-per-row — a LazyVerticalGrid inside a scrolling column needs a
                 // hard height, and up to 8 items never need lazy layout anyway.
+                // Row uses IntrinsicSize.Min so both tiles in a pair share one
+                // height even when one output's name wraps to a second line.
                 for (rowStart in outputs.indices step 2) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(11.dp)) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(11.dp),
+                        modifier = Modifier.height(IntrinsicSize.Min)
+                    ) {
                         for (i in rowStart until minOf(rowStart + 2, outputs.size)) {
                             OutputTile(
                                 state = outputs[i],
-                                modifier = Modifier.weight(1f),
-                                onToggle = { onToggle(i) },
+                                modifier = Modifier.weight(1f).fillMaxHeight(),
+                                onSet = { on -> onSet(i, on) },
                                 onRename = { renaming = i },
                                 onTimer = { timerFor = i }
                             )
@@ -81,7 +83,7 @@ fun OutputsScreen(viewModel: MainViewModel, header: @Composable () -> Unit) {
                     outputs.forEachIndexed { i, o ->
                         FlatOutputRow(
                             state = o,
-                            onToggle = { onToggle(i) },
+                            onSet = { on -> onSet(i, on) },
                             onRename = { renaming = i },
                             onTimer = { timerFor = i }
                         )
@@ -96,10 +98,7 @@ fun OutputsScreen(viewModel: MainViewModel, header: @Composable () -> Unit) {
         SecurityTeaser(
             armed = status?.securityArmed,
             pending = pendingSecurity,
-            onToggle = {
-                val target = pendingSecurity ?: (status?.securityArmed != true)
-                viewModel.setSecurity(target)
-            }
+            onSet = { target -> viewModel.setSecurity(target) }
         )
 
         SectionHeader("همه خروجی‌ها")
@@ -162,7 +161,7 @@ fun OutputsScreen(viewModel: MainViewModel, header: @Composable () -> Unit) {
  * dedicated Security tab, but arming from here needs no extra tap.
  */
 @Composable
-private fun SecurityTeaser(armed: Boolean?, pending: Boolean?, onToggle: () -> Unit) {
+private fun SecurityTeaser(armed: Boolean?, pending: Boolean?, onSet: (Boolean) -> Unit) {
     val c = Tivan
     val layout = CurrentLayout
     val isArmed = armed == true
@@ -171,15 +170,28 @@ private fun SecurityTeaser(armed: Boolean?, pending: Boolean?, onToggle: () -> U
         isArmed -> "فعال"
         else -> "غیرفعال"
     }
-    val hint = when {
-        pending != null -> "پیامک ارسال شد…"
-        isArmed -> "برای غیرفعال کردن لمس کنید"
-        else -> "برای فعال‌سازی لمس کنید"
-    }
     val accent = when {
         pending != null -> c.pending
         isArmed -> c.alarm
         else -> c.dim2
+    }
+    val bg by animateColorAsState(accent.copy(alpha = if (pending != null) 0.12f else 0.1f), tween(280), label = "secBg")
+
+    val buttons: @Composable () -> Unit = {
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
+            TinyButton(
+                "فعال کردن",
+                Modifier.weight(1f),
+                emphasis = if (isArmed) c.alarm else null,
+                onClick = { onSet(true) }
+            )
+            TinyButton(
+                "غیرفعال کردن",
+                Modifier.weight(1f),
+                emphasis = if (armed == false) c.on else null,
+                onClick = { onSet(false) }
+            )
+        }
     }
 
     when (layout) {
@@ -187,36 +199,40 @@ private fun SecurityTeaser(armed: Boolean?, pending: Boolean?, onToggle: () -> U
             Column(
                 Modifier
                     .fillMaxWidth()
+                    .background(bg)
                     .border(1.dp, c.stroke)
-                    .clickable(onClick = onToggle)
-                    .padding(vertical = 22.dp, horizontal = 18.dp)
+                    .padding(vertical = 18.dp, horizontal = 18.dp)
             ) {
                 Text("سیستم امنیتی", style = MaterialTheme.typography.labelSmall, color = c.dim2)
                 Spacer(Modifier.height(8.dp))
                 Text(statusText, style = MaterialTheme.typography.headlineSmall, color = c.text)
-                Spacer(Modifier.height(3.dp))
-                Text(hint, style = MaterialTheme.typography.labelSmall, color = c.dim2)
+                Spacer(Modifier.height(14.dp))
+                buttons()
             }
 
         TivanLayout.CARD ->
-            GlassCard(Modifier.fillMaxWidth(), onClick = onToggle) {
-                Row(Modifier.padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        Modifier
-                            .size(52.dp)
-                            .clip(CircleShape)
-                            .background(accent.copy(alpha = 0.14f)),
-                        contentAlignment = Alignment.Center
-                    ) { Text(if (isArmed) "🔒" else "🔓", style = MaterialTheme.typography.titleMedium) }
-                    Spacer(Modifier.width(14.dp))
-                    Column {
-                        Text(
-                            if (isArmed) "دزدگیر فعال" else "دزدگیر غیرفعال",
-                            style = MaterialTheme.typography.titleSmall,
-                            color = c.text
-                        )
-                        Text(hint, style = MaterialTheme.typography.labelSmall, color = c.dim2)
+            GlassCard(Modifier.fillMaxWidth(), tint = bg) {
+                Column(Modifier.padding(15.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            Modifier
+                                .size(52.dp)
+                                .clip(CircleShape)
+                                .background(accent.copy(alpha = 0.14f)),
+                            contentAlignment = Alignment.Center
+                        ) { Text(if (isArmed) "🔒" else "🔓", style = MaterialTheme.typography.titleMedium) }
+                        Spacer(Modifier.width(14.dp))
+                        Column {
+                            Text(
+                                if (isArmed) "دزدگیر فعال" else "دزدگیر غیرفعال",
+                                style = MaterialTheme.typography.titleSmall,
+                                color = c.text
+                            )
+                            Text(statusText, style = MaterialTheme.typography.labelSmall, color = c.dim2)
+                        }
                     }
+                    Spacer(Modifier.height(14.dp))
+                    buttons()
                 }
             }
     }
@@ -226,7 +242,7 @@ private fun SecurityTeaser(armed: Boolean?, pending: Boolean?, onToggle: () -> U
 private fun OutputTile(
     state: OutputUi,
     modifier: Modifier = Modifier,
-    onToggle: () -> Unit,
+    onSet: (Boolean) -> Unit,
     onRename: () -> Unit,
     onTimer: () -> Unit
 ) {
@@ -240,6 +256,7 @@ private fun OutputTile(
         when {
             state.pending -> c.pending.copy(alpha = 0.15f)
             state.on == true -> c.on.copy(alpha = 0.17f)
+            state.on == false -> c.alarm.copy(alpha = 0.08f)
             else -> c.glass
         },
         tween(280), label = "tileTint"
@@ -249,25 +266,29 @@ private fun OutputTile(
         tween(280), label = "tileBorder"
     )
 
-    GlassCard(modifier = modifier, tint = tint, borderTint = border, onClick = onToggle) {
-        Column(Modifier.padding(14.dp)) {
+    GlassCard(modifier = modifier, tint = tint, borderTint = border) {
+        Column(Modifier.padding(14.dp).fillMaxHeight()) {
             Row(
                 Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.Top
             ) {
-                Column {
-                    Text(
-                        state.name,
-                        style = MaterialTheme.typography.titleSmall,
-                        color = c.text,
-                        maxLines = 1
-                    )
-                    Text(
-                        if (state.on != null && !state.pending) RelativeTime.ago(state.updatedAt) else "خروجی",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = c.dim2
-                    )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(state.icon, style = MaterialTheme.typography.titleMedium)
+                    Spacer(Modifier.width(8.dp))
+                    Column {
+                        Text(
+                            state.name,
+                            style = MaterialTheme.typography.titleSmall,
+                            color = c.text,
+                            maxLines = 2
+                        )
+                        Text(
+                            if (state.on != null && !state.pending) RelativeTime.ago(state.updatedAt) else "خروجی",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = c.dim2
+                        )
+                    }
                 }
                 StatusPill(
                     when {
@@ -279,10 +300,23 @@ private fun OutputTile(
                     accent
                 )
             }
+            Spacer(Modifier.weight(1f))
             Spacer(Modifier.height(12.dp))
-            MiniSwitch(on = state.on == true, pending = state.pending, accent = accent)
-
-            Spacer(Modifier.height(12.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                TinyButton(
+                    "روشن کن",
+                    Modifier.weight(1f),
+                    emphasis = if (state.on == true) c.on else null,
+                    onClick = { onSet(true) }
+                )
+                TinyButton(
+                    "خاموش کن",
+                    Modifier.weight(1f),
+                    emphasis = if (state.on == false) c.alarm else null,
+                    onClick = { onSet(false) }
+                )
+            }
+            Spacer(Modifier.height(6.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 TinyButton("⏱ تایمر", Modifier.weight(1f), onClick = onTimer)
                 TinyButton("✎ نام", Modifier.weight(1f), onClick = onRename)
@@ -294,7 +328,7 @@ private fun OutputTile(
 @Composable
 private fun FlatOutputRow(
     state: OutputUi,
-    onToggle: () -> Unit,
+    onSet: (Boolean) -> Unit,
     onRename: () -> Unit,
     onTimer: () -> Unit
 ) {
@@ -304,75 +338,55 @@ private fun FlatOutputRow(
         state.on == true -> c.on
         else -> c.dim2
     }
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onToggle)
-            .padding(vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(Modifier.weight(1f)) {
-            Text(state.name, style = MaterialTheme.typography.titleSmall, color = c.text, maxLines = 1)
+    Column(Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(state.icon, style = MaterialTheme.typography.titleMedium)
+            Spacer(Modifier.width(8.dp))
+            Column(Modifier.weight(1f)) {
+                Text(state.name, style = MaterialTheme.typography.titleSmall, color = c.text, maxLines = 2)
+                Text(
+                    when {
+                        state.pending -> "منتظر تأیید…"
+                        state.on == true -> "روشن"
+                        state.on == false -> "خاموش"
+                        else -> "نامشخص"
+                    },
+                    style = MaterialTheme.typography.labelSmall,
+                    color = accent
+                )
+            }
             Text(
-                when {
-                    state.pending -> "منتظر تأیید…"
-                    state.on == true -> "روشن"
-                    state.on == false -> "خاموش"
-                    else -> "نامشخص"
-                },
-                style = MaterialTheme.typography.labelSmall,
-                color = accent
+                "⏱",
+                modifier = Modifier
+                    .clip(CircleShape)
+                    .clickable(onClick = onTimer)
+                    .padding(8.dp),
+                color = c.dim2
+            )
+            Text(
+                "✎",
+                modifier = Modifier
+                    .clip(CircleShape)
+                    .clickable(onClick = onRename)
+                    .padding(8.dp),
+                color = c.dim2
             )
         }
-        Text(
-            "⏱",
-            modifier = Modifier
-                .clip(CircleShape)
-                .clickable(onClick = onTimer)
-                .padding(8.dp),
-            color = c.dim2
-        )
-        Text(
-            "✎",
-            modifier = Modifier
-                .clip(CircleShape)
-                .clickable(onClick = onRename)
-                .padding(8.dp),
-            color = c.dim2
-        )
-        Spacer(Modifier.width(4.dp))
-        MiniSwitch(on = state.on == true, pending = state.pending, accent = accent)
-    }
-}
-
-@Composable
-private fun MiniSwitch(on: Boolean, pending: Boolean, accent: androidx.compose.ui.graphics.Color) {
-    val c = Tivan
-    val knob by animateFloatAsState(
-        targetValue = when {
-            pending -> 0.5f
-            on -> 1f
-            else -> 0f
-        },
-        animationSpec = tween(260), label = "knob"
-    )
-    Box(
-        Modifier
-            .size(width = 46.dp, height = 27.dp)
-            .clip(CircleShape)
-            .background(if (on && !pending) accent else accent.copy(alpha = 0.18f))
-            .border(1.dp, if (on && !pending) accent else c.stroke, CircleShape)
-    ) {
-        val travel = 19.dp
-        Box(
-            Modifier
-                .padding(3.dp)
-                .offset(x = -(travel * knob))
-                .align(Alignment.CenterEnd)
-                .size(21.dp)
-                .clip(CircleShape)
-                .background(if (pending) accent else androidx.compose.ui.graphics.Color.White)
-        )
+        Spacer(Modifier.height(8.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            TinyButton(
+                "روشن کن",
+                Modifier.weight(1f),
+                emphasis = if (state.on == true) c.on else null,
+                onClick = { onSet(true) }
+            )
+            TinyButton(
+                "خاموش کن",
+                Modifier.weight(1f),
+                emphasis = if (state.on == false) c.alarm else null,
+                onClick = { onSet(false) }
+            )
+        }
     }
 }
 
