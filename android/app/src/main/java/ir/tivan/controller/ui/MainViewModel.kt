@@ -54,6 +54,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private val tivanApp get() = getApplication<TivanApp>()
     private val repo get() = tivanApp.repository
+    private val prefs by lazy { ir.tivan.controller.util.AppPreferences(tivanApp) }
+
+    private fun speak(text: String) {
+        if (prefs.voiceEnabled.value) ir.tivan.controller.tts.TivanSpeaker.speak(text)
+    }
 
     // ---- local-only display names --------------------------------------------
     // The controller echoes device.outputName/inputMessage in every SMS report,
@@ -201,6 +206,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 stillPending.remove(index)
                 cancelTimeout("out$index")
                 settled = true
+                speak("${device.outputName(index)} ${if (target) "روشن شد" else "خاموش شد"}")
             }
         }
         if (settled) _pendingOutputs.value = stillPending
@@ -210,6 +216,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 _pendingSecurity.value = null
                 cancelTimeout("sec")
                 emitToast(if (target) "دزدگیر فعال شد" else "دزدگیر غیرفعال شد")
+                speak(if (target) "دزدگیر فعال شد" else "دزدگیر غیرفعال شد")
             }
         }
 
@@ -418,6 +425,44 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private suspend fun emitToast(text: String) {
         _toast.emit(Toast(System.nanoTime(), text))
+    }
+
+    // ---- schedules ------------------------------------------------------------
+    fun schedulesFor(outputIndex: Int) = selectedDevice.value?.let { device ->
+        tivanApp.database.scheduleDao().observeFor(device.id, isOutput = true, channelIndex = outputIndex)
+    } ?: kotlinx.coroutines.flow.flowOf(emptyList())
+
+    fun addSchedule(
+        outputIndex: Int,
+        days: Int,
+        startHour: Int,
+        startMinute: Int,
+        endHour: Int,
+        endMinute: Int
+    ) {
+        val device = selectedDevice.value ?: return
+        viewModelScope.launch {
+            val schedule = ir.tivan.controller.data.Schedule(
+                deviceId = device.id,
+                isOutput = true,
+                channelIndex = outputIndex,
+                days = days,
+                startHour = startHour,
+                startMinute = startMinute,
+                endHour = endHour,
+                endMinute = endMinute
+            )
+            val id = tivanApp.database.scheduleDao().insert(schedule)
+            ir.tivan.controller.schedule.ScheduleScheduler.arm(tivanApp, schedule.copy(id = id))
+            emitToast("زمان‌بندی ذخیره شد")
+        }
+    }
+
+    fun deleteSchedule(schedule: ir.tivan.controller.data.Schedule) {
+        viewModelScope.launch {
+            ir.tivan.controller.schedule.ScheduleScheduler.disarm(tivanApp, schedule)
+            tivanApp.database.scheduleDao().delete(schedule)
+        }
     }
 
     override fun onCleared() {

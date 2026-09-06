@@ -194,6 +194,31 @@ private fun AppearanceTab(prefs: AppPreferences) {
             )
         }
     }
+
+    Spacer(Modifier.height(10.dp))
+    SettingsGroup("اعلام صوتی") {
+        val voiceEnabled by prefs.voiceEnabled.collectAsState()
+        Text(
+            "با هر تغییر واقعی وضعیت خروجی یا دزدگیر (پس از تأیید دستگاه) یا اجرای زمان‌بندی، برنامه با صدای پیش‌فرض اندروید آن را اعلام می‌کند.",
+            style = MaterialTheme.typography.labelSmall,
+            color = c.dim
+        )
+        Spacer(Modifier.height(11.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            SegmentButton(
+                text = "روشن",
+                selected = voiceEnabled,
+                modifier = Modifier.weight(1f),
+                onClick = { prefs.setVoiceEnabled(true) }
+            )
+            SegmentButton(
+                text = "خاموش",
+                selected = !voiceEnabled,
+                modifier = Modifier.weight(1f),
+                onClick = { prefs.setVoiceEnabled(false) }
+            )
+        }
+    }
 }
 
 @Composable

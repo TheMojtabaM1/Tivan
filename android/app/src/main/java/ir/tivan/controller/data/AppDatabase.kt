@@ -7,8 +7,8 @@ import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 
 @Database(
-    entities = [Device::class, MessageLog::class, DeviceStatus::class],
-    version = 5,
+    entities = [Device::class, MessageLog::class, DeviceStatus::class, Schedule::class],
+    version = 6,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -16,6 +16,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun deviceDao(): DeviceDao
     abstract fun messageLogDao(): MessageLogDao
     abstract fun deviceStatusDao(): DeviceStatusDao
+    abstract fun scheduleDao(): ScheduleDao
 
     companion object {
         @Volatile private var INSTANCE: AppDatabase? = null

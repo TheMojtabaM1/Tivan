@@ -44,6 +44,14 @@ class AppPreferences(context: Context) {
     private val _palette = MutableStateFlow(readPalette())
     val palette: StateFlow<TivanPalette> = _palette.asStateFlow()
 
+    private val _voiceEnabled = MutableStateFlow(prefs.getBoolean(KEY_VOICE, true))
+    val voiceEnabled: StateFlow<Boolean> = _voiceEnabled.asStateFlow()
+
+    fun setVoiceEnabled(enabled: Boolean) {
+        prefs.edit { putBoolean(KEY_VOICE, enabled) }
+        _voiceEnabled.value = enabled
+    }
+
     fun setUiMode(mode: UiMode) {
         prefs.edit { putString(KEY_MODE, mode.name) }
         _uiMode.value = mode
@@ -91,6 +99,7 @@ class AppPreferences(context: Context) {
         const val KEY_MODE = "ui_mode"
         const val KEY_LAYOUT = "tivan_layout"
         const val KEY_PALETTE = "tivan_palette"
+        const val KEY_VOICE = "voice_enabled"
         /** Old single-axis key ("app_theme": OBSIDIAN / LINEN / INSTRUMENT), read only for migration. */
         const val KEY_LEGACY_THEME = "app_theme"
     }

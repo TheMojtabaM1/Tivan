@@ -36,6 +36,7 @@ fun OutputsScreen(viewModel: MainViewModel, header: @Composable () -> Unit) {
     val pendingSecurity by viewModel.pendingSecurity.collectAsState()
     var renaming by remember { mutableStateOf<Int?>(null) }
     var timerFor by remember { mutableStateOf<Int?>(null) }
+    var scheduleFor by remember { mutableStateOf<Int?>(null) }
 
     val onSet: (Int, Boolean) -> Unit = { i, target -> viewModel.toggleOutput(i, target) }
     val isManager = device?.isManager != false
@@ -77,7 +78,8 @@ fun OutputsScreen(viewModel: MainViewModel, header: @Composable () -> Unit) {
                                 modifier = Modifier.weight(1f).fillMaxHeight(),
                                 onSet = { on -> onSet(i, on) },
                                 onRename = if (isManager) { { renaming = i } } else null,
-                                onTimer = if (isManager) { { timerFor = i } } else null
+                                onTimer = if (isManager) { { timerFor = i } } else null,
+                                onSchedule = if (isManager) { { scheduleFor = i } } else null
                             )
                         }
                         if (outputs.size - rowStart == 1) Spacer(Modifier.weight(1f))
@@ -93,7 +95,8 @@ fun OutputsScreen(viewModel: MainViewModel, header: @Composable () -> Unit) {
                             state = o,
                             onSet = { on -> onSet(i, on) },
                             onRename = if (isManager) { { renaming = i } } else null,
-                            onTimer = if (isManager) { { timerFor = i } } else null
+                            onTimer = if (isManager) { { timerFor = i } } else null,
+                            onSchedule = if (isManager) { { scheduleFor = i } } else null
                         )
                         if (i < outputs.lastIndex) {
                             HorizontalDivider(c.stroke)
@@ -159,6 +162,16 @@ fun OutputsScreen(viewModel: MainViewModel, header: @Composable () -> Unit) {
             outputNumber = index + 1,
             onDismiss = { timerFor = null },
             onSend = { cmd -> viewModel.sendCommand(cmd); timerFor = null }
+        )
+    }
+
+    scheduleFor?.let { index ->
+        ScheduleDialog(
+            outputName = outputs.getOrNull(index)?.name ?: "خروجی ${index + 1}",
+            schedules = viewModel.schedulesFor(index).collectAsState(initial = emptyList()).value,
+            onAdd = { days, sh, sm, eh, em -> viewModel.addSchedule(index, days, sh, sm, eh, em) },
+            onDelete = { viewModel.deleteSchedule(it) },
+            onDismiss = { scheduleFor = null }
         )
     }
 }
@@ -252,7 +265,8 @@ private fun OutputTile(
     modifier: Modifier = Modifier,
     onSet: (Boolean) -> Unit,
     onRename: (() -> Unit)?,
-    onTimer: (() -> Unit)?
+    onTimer: (() -> Unit)?,
+    onSchedule: (() -> Unit)? = null
 ) {
     val c = Tivan
     val accent = when {
@@ -324,10 +338,11 @@ private fun OutputTile(
                     onClick = { onSet(false) }
                 )
             }
-            if (onTimer != null || onRename != null) {
+            if (onTimer != null || onRename != null || onSchedule != null) {
                 Spacer(Modifier.height(6.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    if (onTimer != null) TinyButton("⏱ تایمر", Modifier.weight(1f), onClick = onTimer)
+                    if (onTimer != null) TinyButton("⏱", Modifier.weight(1f), onClick = onTimer)
+                    if (onSchedule != null) TinyButton("📅", Modifier.weight(1f), onClick = onSchedule)
                     if (onRename != null) TinyButton("✎ نام", Modifier.weight(1f), onClick = onRename)
                 }
             }
@@ -340,7 +355,8 @@ private fun FlatOutputRow(
     state: OutputUi,
     onSet: (Boolean) -> Unit,
     onRename: (() -> Unit)?,
-    onTimer: (() -> Unit)?
+    onTimer: (() -> Unit)?,
+    onSchedule: (() -> Unit)? = null
 ) {
     val c = Tivan
     val accent = when {
@@ -371,6 +387,16 @@ private fun FlatOutputRow(
                     modifier = Modifier
                         .clip(CircleShape)
                         .clickable(onClick = onTimer)
+                        .padding(8.dp),
+                    color = c.dim2
+                )
+            }
+            if (onSchedule != null) {
+                Text(
+                    "📅",
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .clickable(onClick = onSchedule)
                         .padding(8.dp),
                     color = c.dim2
                 )
@@ -565,5 +591,133 @@ private fun TimerDialog(outputNumber: Int, onDismiss: () -> Unit, onSend: (Strin
             ) { Text("ارسال") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("انصراف") } }
+    )
+}
+
+private val WEEK_DAYS = listOf(
+    java.util.Calendar.SATURDAY to "ش",
+    java.util.Calendar.SUNDAY to "ی",
+    java.util.Calendar.MONDAY to "د",
+    java.util.Calendar.TUESDAY to "س",
+    java.util.Calendar.WEDNESDAY to "چ",
+    java.util.Calendar.THURSDAY to "پ",
+    java.util.Calendar.FRIDAY to "ج"
+)
+
+private fun timeLabel(h: Int, m: Int) = "${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}"
+
+private fun daysLabel(mask: Int): String {
+    val all = WEEK_DAYS.all { (day, _) -> mask and (1 shl day) != 0 }
+    if (all) return "همه روزها"
+    return WEEK_DAYS.filter { (day, _) -> mask and (1 shl day) != 0 }.joinToString("، ") { it.second }
+}
+
+/**
+ * Manages the weekly on/off timers for one output — a list of what's
+ * already scheduled, and a form to add another. Each entry covers whichever
+ * days are checked with one start/end time; adding several entries with
+ * different day sets is how a different time per day of the week is built.
+ */
+@Composable
+private fun ScheduleDialog(
+    outputName: String,
+    schedules: List<ir.tivan.controller.data.Schedule>,
+    onAdd: (days: Int, startHour: Int, startMinute: Int, endHour: Int, endMinute: Int) -> Unit,
+    onDelete: (ir.tivan.controller.data.Schedule) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val c = Tivan
+    var selectedDays by remember { mutableStateOf(setOf<Int>()) }
+    var startHour by remember { mutableStateOf("8") }
+    var startMinute by remember { mutableStateOf("0") }
+    var endHour by remember { mutableStateOf("18") }
+    var endMinute by remember { mutableStateOf("0") }
+
+    fun hh(v: String) = v.toIntOrNull()?.coerceIn(0, 23)
+    fun mm(v: String) = v.toIntOrNull()?.coerceIn(0, 59)
+    val valid = selectedDays.isNotEmpty() && hh(startHour) != null && mm(startMinute) != null &&
+        hh(endHour) != null && mm(endMinute) != null
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = if (c.dark) androidx.compose.ui.graphics.Color(0xFF141828)
+        else androidx.compose.ui.graphics.Color.White,
+        title = { Text("زمان‌بندی «$outputName»", style = MaterialTheme.typography.titleMedium, color = c.text) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                Text(
+                    "برای اجرای درست، گوشی باید روشن، برنامه نصب و آنتن‌دهی داشته باشد — زمان‌بندی از طریق همین گوشی پیامک می‌فرستد.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = c.pending
+                )
+                Spacer(Modifier.height(12.dp))
+
+                if (schedules.isNotEmpty()) {
+                    Text("برنامه‌های فعلی", style = MaterialTheme.typography.labelSmall, color = c.dim)
+                    Spacer(Modifier.height(6.dp))
+                    schedules.forEach { s ->
+                        Row(
+                            Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    "${timeLabel(s.startHour, s.startMinute)} تا ${timeLabel(s.endHour, s.endMinute)}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = c.text
+                                )
+                                Text(daysLabel(s.days), style = MaterialTheme.typography.labelSmall, color = c.dim2)
+                            }
+                            TextButton(onClick = { onDelete(s) }) { Text("حذف", color = c.alarm) }
+                        }
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    HorizontalDivider(c.stroke)
+                    Spacer(Modifier.height(10.dp))
+                }
+
+                Text("افزودن زمان‌بندی جدید", style = MaterialTheme.typography.labelSmall, color = c.dim)
+                Spacer(Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    WEEK_DAYS.forEach { (day, label) ->
+                        val sel = day in selectedDays
+                        Box(
+                            Modifier
+                                .size(34.dp)
+                                .clip(CircleShape)
+                                .background(if (sel) c.primary.copy(alpha = 0.25f) else c.glassStrong)
+                                .border(1.dp, if (sel) c.primary else c.stroke, CircleShape)
+                                .clickable {
+                                    selectedDays = if (sel) selectedDays - day else selectedDays + day
+                                },
+                            contentAlignment = Alignment.Center
+                        ) { Text(label, style = MaterialTheme.typography.labelSmall, color = c.text) }
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
+                Text("ساعت روشن شدن", style = MaterialTheme.typography.labelSmall, color = c.dim)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    LabeledField("ساعت (۰-۲۳)", startHour, { startHour = it.filter(Char::isDigit).take(2) }, "8", androidx.compose.ui.text.input.KeyboardType.Number)
+                    LabeledField("دقیقه (۰-۵۹)", startMinute, { startMinute = it.filter(Char::isDigit).take(2) }, "0", androidx.compose.ui.text.input.KeyboardType.Number)
+                }
+                Spacer(Modifier.height(10.dp))
+                Text("ساعت خاموش شدن", style = MaterialTheme.typography.labelSmall, color = c.dim)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    LabeledField("ساعت (۰-۲۳)", endHour, { endHour = it.filter(Char::isDigit).take(2) }, "18", androidx.compose.ui.text.input.KeyboardType.Number)
+                    LabeledField("دقیقه (۰-۵۹)", endMinute, { endMinute = it.filter(Char::isDigit).take(2) }, "0", androidx.compose.ui.text.input.KeyboardType.Number)
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = valid,
+                onClick = {
+                    val mask = selectedDays.sumOf { 1 shl it }
+                    onAdd(mask, hh(startHour)!!, mm(startMinute)!!, hh(endHour)!!, mm(endMinute)!!)
+                    selectedDays = emptySet()
+                }
+            ) { Text("افزودن") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("بستن") } }
     )
 }

@@ -6,9 +6,15 @@ import ir.tivan.controller.data.Device
 import ir.tivan.controller.data.DeviceRepository
 import ir.tivan.controller.data.DeviceStatus
 import ir.tivan.controller.data.LogDirection
+import ir.tivan.controller.schedule.ScheduleScheduler
 import ir.tivan.controller.sms.StatusParser
+import ir.tivan.controller.tts.TivanSpeaker
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -16,6 +22,17 @@ class TivanApp : Application() {
 
     val database: AppDatabase by lazy { AppDatabase.get(this) }
     val repository: DeviceRepository by lazy { DeviceRepository(database) }
+
+    override fun onCreate() {
+        super.onCreate()
+        TivanSpeaker.init(this)
+        // Re-arm every enabled schedule on process start (covers both a
+        // fresh boot, where BootReceiver already does this, and the app
+        // process being killed and relaunched without a device reboot).
+        CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
+            database.scheduleDao().getAllEnabled().forEach { ScheduleScheduler.arm(this@TivanApp, it) }
+        }
+    }
 
     /** Emits (deviceId, rawSmsBody) whenever an incoming SMS from a known device arrives. */
     val reportBus = MutableSharedFlow<Pair<Long, String>>(extraBufferCapacity = 16)
