@@ -218,6 +218,14 @@ private fun AppearanceTab(prefs: AppPreferences) {
                 onClick = { prefs.setVoiceEnabled(false) }
             )
         }
+        if (voiceEnabled) {
+            Spacer(Modifier.height(11.dp))
+            OutlinedButton(
+                onClick = { ir.tivan.controller.tts.TivanSpeaker.speak("این یک پیام آزمایشی است") },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(15.dp)
+            ) { Text("🔊 تست صدا") }
+        }
     }
 }
 

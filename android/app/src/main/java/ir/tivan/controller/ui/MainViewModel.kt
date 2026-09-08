@@ -54,7 +54,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private val tivanApp get() = getApplication<TivanApp>()
     private val repo get() = tivanApp.repository
-    private val prefs by lazy { ir.tivan.controller.util.AppPreferences(tivanApp) }
+    private val prefs get() = tivanApp.preferences
 
     private fun speak(text: String) {
         if (prefs.voiceEnabled.value) ir.tivan.controller.tts.TivanSpeaker.speak(text)

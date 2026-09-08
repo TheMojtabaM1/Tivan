@@ -76,7 +76,7 @@ class MainActivity : ComponentActivity() {
         // interactive surface then re-applies its own inset padding.
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        prefs = AppPreferences(this)
+        prefs = (application as TivanApp).preferences
         refreshPermissionState()
         if (!SmsPermissions.hasAsked(this)) requestSmsPermissions()
 

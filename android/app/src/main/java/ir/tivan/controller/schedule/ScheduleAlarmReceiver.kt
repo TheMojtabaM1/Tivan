@@ -9,7 +9,6 @@ import ir.tivan.controller.data.LogDirection
 import ir.tivan.controller.data.Schedule
 import ir.tivan.controller.sms.SmsSender
 import ir.tivan.controller.tts.TivanSpeaker
-import ir.tivan.controller.util.AppPreferences
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -60,8 +59,7 @@ class ScheduleAlarmReceiver : BroadcastReceiver() {
             )
         }
 
-        val prefs = AppPreferences(context)
-        if (prefs.voiceEnabled.value) {
+        if (app.preferences.voiceEnabled.value) {
             val name = device.outputName(schedule.channelIndex)
             val verb = if (turnOn) "روشن شد" else "خاموش شد"
             TivanSpeaker.speak("$name $verb")

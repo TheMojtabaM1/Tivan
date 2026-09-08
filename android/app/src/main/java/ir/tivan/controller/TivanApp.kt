@@ -23,6 +23,17 @@ class TivanApp : Application() {
     val database: AppDatabase by lazy { AppDatabase.get(this) }
     val repository: DeviceRepository by lazy { DeviceRepository(database) }
 
+    /**
+     * Single shared instance so a toggle written from one screen (e.g.
+     * Settings) is visible to every other reader (e.g. MainViewModel's
+     * voice-announcement check) immediately — two separate instances over
+     * the same SharedPreferences file would each cache their own stale
+     * in-memory StateFlow snapshot from whenever they were constructed.
+     */
+    val preferences: ir.tivan.controller.util.AppPreferences by lazy {
+        ir.tivan.controller.util.AppPreferences(this)
+    }
+
     override fun onCreate() {
         super.onCreate()
         TivanSpeaker.init(this)
