@@ -25,17 +25,19 @@ private fun style(size: Int, weight: FontWeight, lineHeight: Int, spacing: Doubl
         letterSpacing = spacing.sp
     )
 
+// Sized up from the original scale — most users are older adults with
+// weaker eyesight, so legibility beats density everywhere in this app.
 val TivanTypography = Typography(
-    displaySmall = style(30, FontWeight.Black, 40),
-    headlineMedium = style(22, FontWeight.Black, 32),
-    headlineSmall = style(19, FontWeight.Black, 28),
-    titleLarge = style(17, FontWeight.Black, 26),
-    titleMedium = style(15, FontWeight.Black, 24),
-    titleSmall = style(14, FontWeight.Black, 22),
-    bodyLarge = style(15, FontWeight.Normal, 26),
-    bodyMedium = style(13, FontWeight.Normal, 22),
-    bodySmall = style(12, FontWeight.Normal, 20),
-    labelLarge = style(13, FontWeight.Medium, 20),
-    labelMedium = style(12, FontWeight.Medium, 18),
-    labelSmall = style(11, FontWeight.Medium, 16)
+    displaySmall = style(34, FontWeight.Black, 44),
+    headlineMedium = style(25, FontWeight.Black, 35),
+    headlineSmall = style(22, FontWeight.Black, 31),
+    titleLarge = style(20, FontWeight.Black, 29),
+    titleMedium = style(18, FontWeight.Black, 27),
+    titleSmall = style(16, FontWeight.Black, 24),
+    bodyLarge = style(18, FontWeight.Normal, 29),
+    bodyMedium = style(16, FontWeight.Normal, 26),
+    bodySmall = style(14, FontWeight.Normal, 22),
+    labelLarge = style(16, FontWeight.Medium, 23),
+    labelMedium = style(15, FontWeight.Medium, 21),
+    labelSmall = style(13, FontWeight.Medium, 19)
 )

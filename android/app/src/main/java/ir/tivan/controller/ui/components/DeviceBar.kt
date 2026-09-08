@@ -313,7 +313,8 @@ private fun DeviceRow(
                     color = c.dim2
                 )
             }
-            if (selected) StatusPill("فعال", c.primary) else {
+            Column(horizontalAlignment = Alignment.End) {
+                if (selected) StatusPill("فعال", c.primary)
                 TextButton(onClick = onDelete) {
                     Text("حذف", style = MaterialTheme.typography.labelSmall, color = c.alarm)
                 }

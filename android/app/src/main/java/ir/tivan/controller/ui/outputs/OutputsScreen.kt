@@ -16,6 +16,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.unit.dp
 import ir.tivan.controller.data.Device
 import ir.tivan.controller.ui.MainViewModel
@@ -63,28 +64,19 @@ fun OutputsScreen(viewModel: MainViewModel, header: @Composable () -> Unit) {
 
         when (layout) {
             TivanLayout.CARD ->
-                // 2-per-row — a LazyVerticalGrid inside a scrolling column needs a
-                // hard height, and up to 8 items never need lazy layout anyway.
-                // Row uses IntrinsicSize.Min so both tiles in a pair share one
-                // height even when one output's name wraps to a second line.
-                for (rowStart in outputs.indices step 2) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(11.dp),
-                        modifier = Modifier.height(IntrinsicSize.Min)
-                    ) {
-                        for (i in rowStart until minOf(rowStart + 2, outputs.size)) {
-                            OutputTile(
-                                state = outputs[i],
-                                modifier = Modifier.weight(1f).fillMaxHeight(),
-                                onSet = { on -> onSet(i, on) },
-                                onRename = if (isManager) { { renaming = i } } else null,
-                                onTimer = if (isManager) { { timerFor = i } } else null,
-                                onSchedule = if (isManager) { { scheduleFor = i } } else null
-                            )
-                        }
-                        if (outputs.size - rowStart == 1) Spacer(Modifier.weight(1f))
+                // One output per row — easier to read and to hit the on/off
+                // buttons than a cramped 2-per-row grid.
+                Column(verticalArrangement = Arrangement.spacedBy(11.dp)) {
+                    outputs.forEachIndexed { i, o ->
+                        OutputTile(
+                            state = o,
+                            modifier = Modifier.fillMaxWidth(),
+                            onSet = { on -> onSet(i, on) },
+                            onRename = if (isManager) { { renaming = i } } else null,
+                            onTimer = if (isManager) { { timerFor = i } } else null,
+                            onSchedule = if (isManager) { { scheduleFor = i } } else null
+                        )
                     }
-                    if (rowStart + 2 < outputs.size) Spacer(Modifier.height(11.dp))
                 }
 
             TivanLayout.FLAT ->
@@ -200,16 +192,18 @@ private fun SecurityTeaser(armed: Boolean?, pending: Boolean?, onSet: (Boolean) 
 
     val buttons: @Composable () -> Unit = {
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
-            TinyButton(
+            PowerButton(
                 "فعال کردن",
-                Modifier.weight(1f),
-                emphasis = if (isArmed) c.alarm else null,
+                pressed = isArmed,
+                emphasis = c.alarm,
+                modifier = Modifier.weight(1f),
                 onClick = { onSet(true) }
             )
-            TinyButton(
+            PowerButton(
                 "غیرفعال کردن",
-                Modifier.weight(1f),
-                emphasis = if (armed == false) c.on else null,
+                pressed = armed == false,
+                emphasis = c.on,
+                modifier = Modifier.weight(1f),
                 onClick = { onSet(false) }
             )
         }
@@ -325,16 +319,18 @@ private fun OutputTile(
             Spacer(Modifier.weight(1f))
             Spacer(Modifier.height(12.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                TinyButton(
+                PowerButton(
                     "روشن کن",
-                    Modifier.weight(1f),
-                    emphasis = if (state.on == true) c.on else null,
+                    pressed = state.on == true,
+                    emphasis = c.on,
+                    modifier = Modifier.weight(1f),
                     onClick = { onSet(true) }
                 )
-                TinyButton(
+                PowerButton(
                     "خاموش کن",
-                    Modifier.weight(1f),
-                    emphasis = if (state.on == false) c.alarm else null,
+                    pressed = state.on == false,
+                    emphasis = c.alarm,
+                    modifier = Modifier.weight(1f),
                     onClick = { onSet(false) }
                 )
             }
@@ -414,17 +410,57 @@ private fun FlatOutputRow(
         }
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            TinyButton(
+            PowerButton(
                 "روشن کن",
-                Modifier.weight(1f),
-                emphasis = if (state.on == true) c.on else null,
+                pressed = state.on == true,
+                emphasis = c.on,
+                modifier = Modifier.weight(1f),
                 onClick = { onSet(true) }
             )
-            TinyButton(
+            PowerButton(
                 "خاموش کن",
-                Modifier.weight(1f),
-                emphasis = if (state.on == false) c.alarm else null,
+                pressed = state.on == false,
+                emphasis = c.alarm,
+                modifier = Modifier.weight(1f),
                 onClick = { onSet(false) }
+            )
+        }
+    }
+}
+
+/**
+ * A raised, embossed-looking on/off button — real shadow elevation plus a
+ * subtle top-to-bottom gradient so it reads as a physical button, not a flat
+ * chip. [pressed] fills it solid with [emphasis] and drops the shadow to
+ * look pushed in; unpressed it's a light raised surface.
+ */
+@Composable
+private fun PowerButton(
+    text: String,
+    pressed: Boolean,
+    emphasis: androidx.compose.ui.graphics.Color,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    val c = Tivan
+    val shape = RoundedCornerShape(12.dp)
+    Surface(
+        onClick = onClick,
+        modifier = modifier.shadow(
+            elevation = if (pressed) 1.dp else 6.dp,
+            shape = shape,
+            ambientColor = emphasis,
+            spotColor = emphasis
+        ),
+        shape = shape,
+        color = if (pressed) emphasis else c.glassStrong,
+        border = androidx.compose.foundation.BorderStroke(1.dp, if (pressed) emphasis else c.stroke)
+    ) {
+        Box(Modifier.padding(vertical = 13.dp), contentAlignment = Alignment.Center) {
+            Text(
+                text,
+                style = MaterialTheme.typography.labelLarge,
+                color = if (pressed) androidx.compose.ui.graphics.Color.White else c.text
             )
         }
     }

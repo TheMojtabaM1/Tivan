@@ -185,14 +185,18 @@ private fun RootScreen(
         tab = next
     }
 
-    // Back closes the sheet first, then unwinds the tab history, and only falls
-    // through to the system (leaving the app) once we're back on the first tab.
-    BackHandler(enabled = sheetOpen || history.size > 1) {
+    // Back closes the sheet first; otherwise one press jumps straight to the
+    // first tab (whatever tab was open when the app launched) rather than
+    // unwinding every tab ever visited one at a time, so leaving the app
+    // never takes more than two back presses regardless of how much
+    // navigating happened first.
+    BackHandler(enabled = sheetOpen || tab != tabs.first()) {
         when {
             sheetOpen -> sheetOpen = false
-            history.size > 1 -> {
-                history.removeAt(history.lastIndex)
-                tab = history.last()
+            tab != tabs.first() -> {
+                history.clear()
+                history.add(tabs.first())
+                tab = tabs.first()
             }
         }
     }
@@ -245,11 +249,26 @@ private fun RootScreen(
                                 )
                                 Spacer(Modifier.height(11.dp))
                             }
-                            DeviceBar(
-                                device = device,
-                                antenna = status?.antenna,
-                                onOpenSwitcher = { sheetOpen = true }
-                            )
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(Modifier.weight(1f)) {
+                                    DeviceBar(
+                                        device = device,
+                                        antenna = status?.antenna,
+                                        onOpenSwitcher = { sheetOpen = true }
+                                    )
+                                }
+                                TextButton(onClick = { sheetOpen = true }) {
+                                    Text(
+                                        "مدیریت دستگاه‌ها ▾",
+                                        style = MaterialTheme.typography.labelLarge,
+                                        color = c.primary
+                                    )
+                                }
+                            }
                             Spacer(Modifier.height(13.dp))
                             HeroFor(
                                 alarmInput = alarm,
