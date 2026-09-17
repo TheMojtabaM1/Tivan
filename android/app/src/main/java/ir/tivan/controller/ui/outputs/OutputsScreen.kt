@@ -6,6 +6,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -576,10 +577,10 @@ fun RenameDialog(
 private fun TimerDialog(outputNumber: Int, onDismiss: () -> Unit, onSend: (String) -> Unit) {
     val c = Tivan
     var minutes by remember { mutableStateOf(true) }
-    var value by remember { mutableStateOf("5") }
-    val n = value.toIntOrNull() ?: 0
+    var n by remember { mutableIntStateOf(5) }
     val max = if (minutes) 999 else 99
     val valid = n in 1..max
+    val presets = if (minutes) listOf(5, 15, 30, 60) else listOf(10, 20, 30, 45)
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -601,17 +602,22 @@ private fun TimerDialog(outputNumber: Int, onDismiss: () -> Unit, onSend: (Strin
                 )
                 Spacer(Modifier.height(12.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(minutes, { minutes = true }, { Text("دقیقه") })
-                    FilterChip(!minutes, { minutes = false }, { Text("ثانیه") })
+                    FilterChip(minutes, { minutes = true; n = n.coerceAtMost(999) }, { Text("دقیقه") })
+                    FilterChip(!minutes, { minutes = false; n = n.coerceAtMost(99) }, { Text("ثانیه") })
                 }
-                Spacer(Modifier.height(12.dp))
-                LabeledField(
-                    if (minutes) "چند دقیقه؟ (۱ تا ۹۹۹)" else "چند ثانیه؟ (۱ تا ۹۹)",
-                    value,
-                    { value = it.filter { ch -> ch.isDigit() }.take(3) },
-                    "5",
-                    androidx.compose.ui.text.input.KeyboardType.Number
-                )
+                Spacer(Modifier.height(14.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    presets.forEach { p ->
+                        TinyButton(p.toString(), Modifier.weight(1f), onClick = { n = p })
+                    }
+                }
+                Spacer(Modifier.height(14.dp))
+                Stepper(
+                    if (minutes) "دقیقه" else "ثانیه",
+                    n,
+                    1..max,
+                    step = if (minutes) 5 else 10
+                ) { n = it }
             }
         },
         confirmButton = {
@@ -648,12 +654,61 @@ private fun daysLabel(mask: Int): String {
     return WEEK_DAYS.filter { (day, _) -> mask and (1 shl day) != 0 }.joinToString("، ") { it.second }
 }
 
+/** A +/− stepper for one numeric field — no keyboard, no typos, big touch targets. */
+@Composable
+private fun Stepper(label: String, value: Int, range: IntRange, step: Int = 1, onChange: (Int) -> Unit) {
+    val c = Tivan
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(label, style = MaterialTheme.typography.labelMedium, color = c.dim)
+        Spacer(Modifier.height(8.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            StepperButton("−") { onChange((value - step).coerceIn(range)) }
+            Box(Modifier.width(58.dp), contentAlignment = Alignment.Center) {
+                Text(
+                    value.toString().padStart(2, '0'),
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = c.text
+                )
+            }
+            StepperButton("+") { onChange((value + step).coerceIn(range)) }
+        }
+    }
+}
+
+@Composable
+private fun StepperButton(symbol: String, onClick: () -> Unit) {
+    val c = Tivan
+    Surface(
+        onClick = onClick,
+        shape = CircleShape,
+        color = c.glassStrong,
+        border = androidx.compose.foundation.BorderStroke(1.dp, c.stroke),
+        modifier = Modifier.size(44.dp)
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Text(symbol, style = MaterialTheme.typography.titleLarge, color = c.text)
+        }
+    }
+}
+
+private data class SchedulePreset(val label: String, val startHour: Int, val endHour: Int)
+private val SCHEDULE_PRESETS = listOf(
+    SchedulePreset("صبح (۶ تا ۱۲)", 6, 12),
+    SchedulePreset("عصر (۱۲ تا ۱۸)", 12, 18),
+    SchedulePreset("شب (۱۸ تا ۲۳)", 18, 23),
+    SchedulePreset("کل روز (۰ تا ۲۳:۵۹)", 0, 23)
+)
+
 /**
- * Manages the weekly on/off timers for one output — a list of what's
- * already scheduled, and a form to add another. Each entry covers whichever
- * days are checked with one start/end time; adding several entries with
- * different day sets is how a different time per day of the week is built.
+ * Manages the weekly on/off timers for one output — a spacious bottom sheet
+ * (not a cramped dialog) showing what's already scheduled as readable cards,
+ * and a form to add another built entirely from taps: day chips, quick time
+ * presets, and +/− steppers instead of a keyboard. Each entry covers
+ * whichever days are checked with one start/end time; adding several
+ * entries with different day sets is how a different time per day of the
+ * week is built.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ScheduleDialog(
     outputName: String,
@@ -664,96 +719,157 @@ private fun ScheduleDialog(
 ) {
     val c = Tivan
     var selectedDays by remember { mutableStateOf(setOf<Int>()) }
-    var startHour by remember { mutableStateOf("8") }
-    var startMinute by remember { mutableStateOf("0") }
-    var endHour by remember { mutableStateOf("18") }
-    var endMinute by remember { mutableStateOf("0") }
+    var startHour by remember { mutableIntStateOf(8) }
+    var startMinute by remember { mutableIntStateOf(0) }
+    var endHour by remember { mutableIntStateOf(18) }
+    var endMinute by remember { mutableIntStateOf(0) }
+    val valid = selectedDays.isNotEmpty()
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    fun hh(v: String) = v.toIntOrNull()?.coerceIn(0, 23)
-    fun mm(v: String) = v.toIntOrNull()?.coerceIn(0, 59)
-    val valid = selectedDays.isNotEmpty() && hh(startHour) != null && mm(startMinute) != null &&
-        hh(endHour) != null && mm(endMinute) != null
-
-    AlertDialog(
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
+        sheetState = sheetState,
         containerColor = if (c.dark) androidx.compose.ui.graphics.Color(0xFF141828)
         else androidx.compose.ui.graphics.Color.White,
-        title = { Text("زمان‌بندی «$outputName»", style = MaterialTheme.typography.titleMedium, color = c.text) },
-        text = {
-            Column(Modifier.verticalScroll(rememberScrollState())) {
-                Text(
-                    "برای اجرای درست، گوشی باید روشن، برنامه نصب و آنتن‌دهی داشته باشد — زمان‌بندی از طریق همین گوشی پیامک می‌فرستد.",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = c.pending
-                )
-                Spacer(Modifier.height(12.dp))
+        contentColor = c.text,
+        dragHandle = { BottomSheetDefaults.DragHandle() }
+    ) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 24.dp)
+        ) {
+            Text("زمان‌بندی «$outputName»", style = MaterialTheme.typography.headlineSmall, color = c.text)
+            Spacer(Modifier.height(6.dp))
+            Text(
+                "گوشی باید روشن، برنامه نصب و آنتن‌دهی داشته باشد تا زمان‌بندی پیامک روشن/خاموش را سر وقت بفرستد.",
+                style = MaterialTheme.typography.bodySmall,
+                color = c.pending
+            )
 
-                if (schedules.isNotEmpty()) {
-                    Text("برنامه‌های فعلی", style = MaterialTheme.typography.labelSmall, color = c.dim)
-                    Spacer(Modifier.height(6.dp))
-                    schedules.forEach { s ->
+            if (schedules.isNotEmpty()) {
+                Spacer(Modifier.height(18.dp))
+                Text("برنامه‌های فعلی", style = MaterialTheme.typography.labelLarge, color = c.dim)
+                Spacer(Modifier.height(8.dp))
+                schedules.forEach { s ->
+                    GlassCard(Modifier.fillMaxWidth().padding(bottom = 8.dp), corner = 14.dp) {
                         Row(
-                            Modifier.fillMaxWidth().padding(vertical = 6.dp),
+                            Modifier.padding(14.dp).fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column(Modifier.weight(1f)) {
                                 Text(
                                     "${timeLabel(s.startHour, s.startMinute)} تا ${timeLabel(s.endHour, s.endMinute)}",
-                                    style = MaterialTheme.typography.bodySmall,
+                                    style = MaterialTheme.typography.titleSmall,
                                     color = c.text
                                 )
-                                Text(daysLabel(s.days), style = MaterialTheme.typography.labelSmall, color = c.dim2)
+                                Spacer(Modifier.height(2.dp))
+                                Text(daysLabel(s.days), style = MaterialTheme.typography.labelMedium, color = c.dim2)
                             }
-                            TextButton(onClick = { onDelete(s) }) { Text("حذف", color = c.alarm) }
+                            Surface(
+                                onClick = { onDelete(s) },
+                                shape = CircleShape,
+                                color = c.alarm.copy(alpha = 0.12f),
+                                modifier = Modifier.size(40.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Text("🗑", style = MaterialTheme.typography.titleMedium)
+                                }
+                            }
                         }
                     }
-                    Spacer(Modifier.height(10.dp))
-                    HorizontalDivider(c.stroke)
-                    Spacer(Modifier.height(10.dp))
-                }
-
-                Text("افزودن زمان‌بندی جدید", style = MaterialTheme.typography.labelSmall, color = c.dim)
-                Spacer(Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    WEEK_DAYS.forEach { (day, label) ->
-                        val sel = day in selectedDays
-                        Box(
-                            Modifier
-                                .size(34.dp)
-                                .clip(CircleShape)
-                                .background(if (sel) c.primary.copy(alpha = 0.25f) else c.glassStrong)
-                                .border(1.dp, if (sel) c.primary else c.stroke, CircleShape)
-                                .clickable {
-                                    selectedDays = if (sel) selectedDays - day else selectedDays + day
-                                },
-                            contentAlignment = Alignment.Center
-                        ) { Text(label, style = MaterialTheme.typography.labelSmall, color = c.text) }
-                    }
-                }
-                Spacer(Modifier.height(12.dp))
-                Text("ساعت روشن شدن", style = MaterialTheme.typography.labelSmall, color = c.dim)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    LabeledField("ساعت (۰-۲۳)", startHour, { startHour = it.filter(Char::isDigit).take(2) }, "8", androidx.compose.ui.text.input.KeyboardType.Number)
-                    LabeledField("دقیقه (۰-۵۹)", startMinute, { startMinute = it.filter(Char::isDigit).take(2) }, "0", androidx.compose.ui.text.input.KeyboardType.Number)
-                }
-                Spacer(Modifier.height(10.dp))
-                Text("ساعت خاموش شدن", style = MaterialTheme.typography.labelSmall, color = c.dim)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    LabeledField("ساعت (۰-۲۳)", endHour, { endHour = it.filter(Char::isDigit).take(2) }, "18", androidx.compose.ui.text.input.KeyboardType.Number)
-                    LabeledField("دقیقه (۰-۵۹)", endMinute, { endMinute = it.filter(Char::isDigit).take(2) }, "0", androidx.compose.ui.text.input.KeyboardType.Number)
                 }
             }
-        },
-        confirmButton = {
-            TextButton(
+
+            Spacer(Modifier.height(20.dp))
+            HorizontalDivider(c.stroke)
+            Spacer(Modifier.height(18.dp))
+
+            Text("افزودن زمان‌بندی جدید", style = MaterialTheme.typography.labelLarge, color = c.dim)
+            Spacer(Modifier.height(4.dp))
+            Text("چه روزهایی؟", style = MaterialTheme.typography.bodySmall, color = c.dim2)
+            Spacer(Modifier.height(10.dp))
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                WEEK_DAYS.forEach { (day, label) ->
+                    val sel = day in selectedDays
+                    Box(
+                        Modifier
+                            .size(42.dp)
+                            .clip(CircleShape)
+                            .background(if (sel) c.primary.copy(alpha = 0.25f) else c.glassStrong)
+                            .border(1.dp, if (sel) c.primary else c.stroke, CircleShape)
+                            .clickable {
+                                selectedDays = if (sel) selectedDays - day else selectedDays + day
+                            },
+                        contentAlignment = Alignment.Center
+                    ) { Text(label, style = MaterialTheme.typography.titleSmall, color = c.text) }
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                TinyButton(
+                    "همه روزها",
+                    Modifier.weight(1f),
+                    onClick = { selectedDays = WEEK_DAYS.map { it.first }.toSet() }
+                )
+                TinyButton(
+                    "پاک کردن",
+                    Modifier.weight(1f),
+                    onClick = { selectedDays = emptySet() }
+                )
+            }
+
+            Spacer(Modifier.height(18.dp))
+            Text("زمان آماده", style = MaterialTheme.typography.bodySmall, color = c.dim2)
+            Spacer(Modifier.height(10.dp))
+            Row(
+                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                SCHEDULE_PRESETS.forEach { p ->
+                    TinyButton(
+                        p.label,
+                        onClick = {
+                            startHour = p.startHour; startMinute = 0
+                            endHour = p.endHour; endMinute = if (p.endHour == 23) 59 else 0
+                        }
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(18.dp))
+            Text("یا زمان دلخواه", style = MaterialTheme.typography.bodySmall, color = c.dim2)
+            Spacer(Modifier.height(10.dp))
+            Text("ساعت روشن شدن", style = MaterialTheme.typography.labelMedium, color = c.dim)
+            Spacer(Modifier.height(6.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+                Stepper("ساعت", startHour, 0..23) { startHour = it }
+                Stepper("دقیقه", startMinute, 0..59, step = 5) { startMinute = it }
+            }
+            Spacer(Modifier.height(14.dp))
+            Text("ساعت خاموش شدن", style = MaterialTheme.typography.labelMedium, color = c.dim)
+            Spacer(Modifier.height(6.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+                Stepper("ساعت", endHour, 0..23) { endHour = it }
+                Stepper("دقیقه", endMinute, 0..59, step = 5) { endMinute = it }
+            }
+
+            Spacer(Modifier.height(22.dp))
+            Button(
                 enabled = valid,
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                shape = RoundedCornerShape(16.dp),
                 onClick = {
                     val mask = selectedDays.sumOf { 1 shl it }
-                    onAdd(mask, hh(startHour)!!, mm(startMinute)!!, hh(endHour)!!, mm(endMinute)!!)
+                    onAdd(mask, startHour, startMinute, endHour, endMinute)
                     selectedDays = emptySet()
                 }
-            ) { Text("افزودن") }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("بستن") } }
-    )
+            ) { Text(if (valid) "افزودن زمان‌بندی" else "اول روزها را انتخاب کنید") }
+        }
+    }
 }
