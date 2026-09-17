@@ -220,8 +220,18 @@ private fun AppearanceTab(prefs: AppPreferences) {
         }
         if (voiceEnabled) {
             Spacer(Modifier.height(11.dp))
+            val context = androidx.compose.ui.platform.LocalContext.current
             OutlinedButton(
-                onClick = { ir.tivan.controller.tts.TivanSpeaker.speak("این یک پیام آزمایشی است") },
+                onClick = {
+                    when (ir.tivan.controller.tts.TivanSpeaker.isAvailable()) {
+                        false -> android.widget.Toast.makeText(
+                            context,
+                            "روی این گوشی هیچ موتور صدایی نصب یا فعال نیست — از فروشگاه گوگل «Google Text-to-Speech» را نصب کنید",
+                            android.widget.Toast.LENGTH_LONG
+                        ).show()
+                        else -> ir.tivan.controller.tts.TivanSpeaker.speak("این یک پیام آزمایشی است")
+                    }
+                },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(15.dp)
             ) { Text("🔊 تست صدا") }

@@ -17,6 +17,21 @@
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
+    <!--
+      Android 11+ hides other apps/services by default unless the querying
+      app declares what it needs to see. Without this, TextToSpeech's
+      internal lookup for an installed speech engine can come back empty on
+      some OEM builds and its init callback silently reports ERROR instead
+      of SUCCESS — no exception, just a permanently unusable engine, which
+      is the actual reason voice announcements never spoke even after the
+      language-fallback fix.
+    -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+    </queries>
+
     <application
         android:name=".TivanApp"
         android:allowBackup="true"

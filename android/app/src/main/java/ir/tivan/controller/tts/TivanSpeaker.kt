@@ -24,6 +24,8 @@ import java.util.Locale
 object TivanSpeaker {
     private var tts: TextToSpeech? = null
     private var ready = false
+    /** Set once init's callback fires — null means "still waiting", not "failed". */
+    private var initFailed: Boolean? = null
     private val pending = mutableListOf<String>()
 
     fun init(context: Context) {
@@ -38,11 +40,19 @@ object TivanSpeaker {
                     engine.setLanguage(Locale.getDefault())
                 }
                 ready = true
+                initFailed = false
                 pending.forEach { engine.speak(it, QUEUE_ADD, null, it.hashCode().toString()) }
                 pending.clear()
+            } else {
+                // No speech engine could be found/bound at all — genuinely
+                // nothing this app can do about it on this device.
+                initFailed = true
             }
         }
     }
+
+    /** null = still initializing, true = a working engine is ready, false = no engine on this device. */
+    fun isAvailable(): Boolean? = initFailed?.let { !it }
 
     fun speak(text: String) {
         val engine = tts
