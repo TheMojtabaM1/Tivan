@@ -44,6 +44,8 @@ object TivanSpeaker {
     private var initFailed: Boolean? = null
     private val pending = mutableListOf<String>()
     private var track: AudioTrack? = null
+    /** The exception's own message, so a failure can actually be diagnosed instead of just reported as "doesn't work". */
+    private var lastError: String? = null
 
     fun init(context: Context) {
         if (tts != null || initFailed != null) return
@@ -72,6 +74,7 @@ object TivanSpeaker {
                 flushPending()
             } catch (e: Throwable) {
                 Log.e(TAG, "Failed to load embedded TTS engine", e)
+                lastError = "${e.javaClass.simpleName}: ${e.message}"
                 initFailed = true
             }
         }
@@ -79,6 +82,9 @@ object TivanSpeaker {
 
     /** null = still loading, true = ready to speak, false = failed to load (corrupt/missing assets). */
     fun isAvailable(): Boolean? = initFailed?.let { !it }
+
+    /** The failure's own error text, for when [isAvailable] is false — null while still loading or once it succeeds. */
+    fun failureReason(): String? = lastError
 
     fun speak(text: String) {
         if (text.isBlank()) return

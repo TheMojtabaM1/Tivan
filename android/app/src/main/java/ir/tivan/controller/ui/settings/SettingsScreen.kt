@@ -186,10 +186,17 @@ private fun AppearanceTab(prefs: AppPreferences) {
                     when (ir.tivan.controller.tts.TivanSpeaker.isAvailable()) {
                         false -> android.widget.Toast.makeText(
                             context,
-                            "روی این گوشی هیچ موتور صدایی نصب یا فعال نیست — از فروشگاه گوگل «Google Text-to-Speech» را نصب کنید",
+                            // The engine is embedded in the app itself now, not the
+                            // phone's system TTS — a failure here means the bundled
+                            // model itself couldn't load, shown as its own error so
+                            // it's actually diagnosable instead of a dead end.
+                            "موتور صدای داخلی برنامه لود نشد: ${ir.tivan.controller.tts.TivanSpeaker.failureReason() ?: "دلیل نامشخص"}",
                             android.widget.Toast.LENGTH_LONG
                         ).show()
-                        else -> ir.tivan.controller.tts.TivanSpeaker.speak("این یک پیام آزمایشی است")
+                        null -> android.widget.Toast.makeText(
+                            context, "موتور صدا هنوز در حال بارگذاری است — چند ثانیه دیگر دوباره امتحان کنید", android.widget.Toast.LENGTH_SHORT
+                        ).show()
+                        true -> ir.tivan.controller.tts.TivanSpeaker.speak("این یک پیام آزمایشی است")
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
