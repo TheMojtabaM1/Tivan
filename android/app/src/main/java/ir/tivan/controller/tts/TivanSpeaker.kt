@@ -86,6 +86,21 @@ object TivanSpeaker {
     /** The failure's own error text, for when [isAvailable] is false — null while still loading or once it succeeds. */
     fun failureReason(): String? = lastError
 
+    /**
+     * Wipes the copied espeak-ng-data (the one piece of the engine that
+     * isn't read straight from the APK's assets, so it's the one piece
+     * that can end up half-written — e.g. from a launch that was killed
+     * mid-copy, back before the app stopped crashing on startup) and
+     * retries loading from scratch.
+     */
+    fun resetAndRetry(context: Context) {
+        tts = null
+        initFailed = null
+        lastError = null
+        runCatching { File(context.applicationContext.filesDir, ASSET_DIR).deleteRecursively() }
+        init(context)
+    }
+
     fun speak(text: String) {
         if (text.isBlank()) return
         val engine = tts

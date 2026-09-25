@@ -181,18 +181,11 @@ private fun AppearanceTab(prefs: AppPreferences) {
         if (voiceEnabled) {
             Spacer(Modifier.height(11.dp))
             val context = androidx.compose.ui.platform.LocalContext.current
+            var showError by remember { mutableStateOf(false) }
             OutlinedButton(
                 onClick = {
                     when (ir.tivan.controller.tts.TivanSpeaker.isAvailable()) {
-                        false -> android.widget.Toast.makeText(
-                            context,
-                            // The engine is embedded in the app itself now, not the
-                            // phone's system TTS — a failure here means the bundled
-                            // model itself couldn't load, shown as its own error so
-                            // it's actually diagnosable instead of a dead end.
-                            "موتور صدای داخلی برنامه لود نشد: ${ir.tivan.controller.tts.TivanSpeaker.failureReason() ?: "دلیل نامشخص"}",
-                            android.widget.Toast.LENGTH_LONG
-                        ).show()
+                        false -> showError = true
                         null -> android.widget.Toast.makeText(
                             context, "موتور صدا هنوز در حال بارگذاری است — چند ثانیه دیگر دوباره امتحان کنید", android.widget.Toast.LENGTH_SHORT
                         ).show()
@@ -202,6 +195,35 @@ private fun AppearanceTab(prefs: AppPreferences) {
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(15.dp)
             ) { Text("🔊 تست صدا") }
+
+            if (showError) {
+                AlertDialog(
+                    onDismissRequest = { showError = false },
+                    containerColor = c.bg,
+                    title = { Text("موتور صدای داخلی لود نشد", color = c.text) },
+                    text = {
+                        Column(Modifier.verticalScroll(rememberScrollState())) {
+                            Text(
+                                // The engine is embedded in the app itself now, not the
+                                // phone's system TTS — a failure here means the bundled
+                                // model itself couldn't load. Shown in full and
+                                // selectable, in its own dialog, rather than a toast
+                                // that could get cut off before it's fully read.
+                                ir.tivan.controller.tts.TivanSpeaker.failureReason() ?: "دلیل نامشخص",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = c.dim
+                            )
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            ir.tivan.controller.tts.TivanSpeaker.resetAndRetry(context)
+                            showError = false
+                        }) { Text("پاک‌سازی و تلاش دوباره") }
+                    },
+                    dismissButton = { TextButton(onClick = { showError = false }) { Text("باشه") } }
+                )
+            }
         }
     }
 }
