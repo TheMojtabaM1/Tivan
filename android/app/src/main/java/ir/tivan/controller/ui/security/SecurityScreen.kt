@@ -41,61 +41,16 @@ fun SecurityScreen(viewModel: MainViewModel, header: @Composable () -> Unit) {
 
     val armed = status?.securityArmed
     val zones = device?.securityZones ?: 2
-    val layout = CurrentLayout
-
-    val panelContent: @Composable ColumnScope.() -> Unit = {
-        ArmBadge(armed = armed, pending = pending, square = layout == TivanLayout.FLAT)
-
-        Spacer(Modifier.height(6.dp))
-        if (armed != null && pending == null) {
-            Text(
-                RelativeTime.ago(status?.securityAt ?: 0L),
-                style = MaterialTheme.typography.labelSmall,
-                color = c.dim2
-            )
-        }
-
-        Spacer(Modifier.height(16.dp))
-        ArmButton(
-            armed = armed,
-            pending = pending,
-            onClick = {
-                val target = pending ?: (armed != true)
-                viewModel.setSecurity(target)
-            }
-        )
-
-        Spacer(Modifier.height(20.dp))
-        Text(
-            "تعداد زون",
-            style = MaterialTheme.typography.labelSmall,
-            color = c.dim
-        )
-        Spacer(Modifier.height(8.dp))
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            listOf("غیرفعال" to 0, "تک زون" to 1, "دو زون" to 2).forEach { (label, z) ->
-                SegmentButton(
-                    text = label,
-                    selected = zones == z,
-                    modifier = Modifier.weight(1f),
-                    onClick = { viewModel.setSecurityZones(z) }
-                )
-            }
-        }
-        Spacer(Modifier.height(8.dp))
-        Text(
-            when (zones) {
-                0 -> "دزدگیر خاموش است"
-                1 -> "فقط ورودی ۱ به‌عنوان زون دزدگیر عمل می‌کند"
-                else -> "ورودی ۱ و ۲ به‌عنوان زون دزدگیر عمل می‌کنند"
-            },
-            style = MaterialTheme.typography.labelSmall,
-            color = c.dim2
-        )
-    }
+    val isArmed = armed == true
+    val stateFill by animateColorAsState(
+        when {
+            pending != null -> c.pending
+            isArmed -> c.alarm
+            else -> c.ink
+        },
+        tween(320), label = "secFill"
+    )
+    val stateInk = if (pending != null || isArmed) androidx.compose.ui.graphics.Color.White else c.onInk
 
     Column(
         Modifier
@@ -104,28 +59,92 @@ fun SecurityScreen(viewModel: MainViewModel, header: @Composable () -> Unit) {
             .padding(horizontal = 16.dp)
     ) {
         header()
-        SectionHeader("دزدگیر", "زون‌ها و آژیر")
+        SectionHeader("دزدگیر", "رنگ کاشی = وضعیت دزدگیر")
 
-        if (layout == TivanLayout.FLAT) {
-            // No cards in flat layout — a borderless block with hairlines
-            // above and below instead.
-            HorizontalDivider(c.stroke)
-            Column(
-                Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 22.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                content = panelContent
-            )
-            HorizontalDivider(c.stroke)
-        } else {
-            GlassCard(Modifier.fillMaxWidth()) {
-                Column(
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 22.dp, horizontal = 18.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    content = panelContent
+        // The state itself as one big tile: dark when off, red when armed,
+        // amber while the device hasn't confirmed yet.
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .clip(androidx.compose.foundation.shape.RoundedCornerShape(CurrentLayout.cardCorner))
+                .background(stateFill)
+                .padding(22.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    when {
+                        pending != null -> "⏳"
+                        isArmed -> "🔒"
+                        else -> "🔓"
+                    },
+                    style = MaterialTheme.typography.displaySmall
+                )
+                Spacer(Modifier.width(16.dp))
+                Column {
+                    Text("سیستم دزدگیر", style = MaterialTheme.typography.labelLarge, color = stateInk.copy(alpha = 0.75f))
+                    Text(
+                        when {
+                            pending != null -> "منتظر تأیید دستگاه"
+                            isArmed -> "فعال است"
+                            armed == false -> "غیرفعال است"
+                            else -> "وضعیت نامشخص"
+                        },
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = stateInk
+                    )
+                    if (armed != null && pending == null) {
+                        Text(
+                            "آخرین گزارش: " + RelativeTime.ago(status?.securityAt ?: 0L),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = stateInk.copy(alpha = 0.75f)
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(10.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            BigActionTile(
+                emoji = "🔒",
+                text = "فعال کن",
+                selected = isArmed,
+                selectedFill = c.alarm,
+                modifier = Modifier.weight(1f),
+                enabled = pending == null
+            ) { viewModel.setSecurity(true) }
+            BigActionTile(
+                emoji = "🔓",
+                text = "غیرفعال کن",
+                selected = armed == false,
+                selectedFill = c.ink,
+                modifier = Modifier.weight(1f),
+                enabled = pending == null
+            ) { viewModel.setSecurity(false) }
+        }
+
+        SectionHeader("زون‌ها", "کدام ورودی‌ها دزدگیر باشند")
+        GlassCard(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("خاموش" to 0, "تک زون" to 1, "دو زون" to 2).forEach { (label, z) ->
+                        SegmentButton(
+                            text = label,
+                            selected = zones == z,
+                            modifier = Modifier.weight(1f),
+                            onClick = { viewModel.setSecurityZones(z) }
+                        )
+                    }
+                }
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    when (zones) {
+                        0 -> "دزدگیر خاموش است و هیچ ورودی آژیر را فعال نمی‌کند"
+                        1 -> "فقط ورودی ۱ به‌عنوان زون دزدگیر عمل می‌کند"
+                        else -> "ورودی ۱ و ۲ به‌عنوان زون دزدگیر عمل می‌کنند"
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = c.dim
                 )
             }
         }
@@ -147,101 +166,33 @@ fun SecurityScreen(viewModel: MainViewModel, header: @Composable () -> Unit) {
     }
 }
 
-/**
- * Small status badge above the arm button — a ring is the clearest place to
- * show a command is out but unconfirmed, so it spins amber until the
- * controller answers rather than flipping straight to "armed".
- */
+/** A large square-ish action tile: emoji over a label, filled when it's the current state. */
 @Composable
-private fun ArmBadge(armed: Boolean?, pending: Boolean?, square: Boolean = false) {
+private fun BigActionTile(
+    emoji: String,
+    text: String,
+    selected: Boolean,
+    selectedFill: androidx.compose.ui.graphics.Color,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    onClick: () -> Unit
+) {
     val c = Tivan
-    val accent = when {
-        pending != null -> c.pending
-        armed == true -> c.alarm
-        else -> c.dim
-    }
-    val fill by animateColorAsState(
-        when {
-            pending != null -> c.pending.copy(alpha = 0.18f)
-            armed == true -> c.alarm.copy(alpha = 0.14f)
-            else -> c.glassStrong
-        },
-        tween(320), label = "badgeFill"
-    )
-    val shape = if (square) androidx.compose.foundation.shape.RoundedCornerShape(4.dp) else CircleShape
-
-    Box(contentAlignment = Alignment.Center) {
-        Box(
-            Modifier
-                .size(74.dp)
-                .clip(shape)
-                .background(fill)
-                .border(2.dp, accent.copy(alpha = 0.7f), shape),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                when {
-                    pending != null -> "⏳"
-                    armed == true -> "🛡"
-                    else -> "🔓"
-                },
-                style = MaterialTheme.typography.headlineMedium
-            )
-        }
-        if (pending != null) {
-            val angle by rememberInfiniteTransition(label = "badgeRing").animateFloat(
-                initialValue = 0f,
-                targetValue = 360f,
-                animationSpec = infiniteRepeatable(tween(1200, easing = LinearEasing)),
-                label = "badgeAngle"
-            )
-            Canvas(Modifier.size(84.dp)) {
-                drawArc(
-                    color = c.pending,
-                    startAngle = angle,
-                    sweepAngle = 100f,
-                    useCenter = false,
-                    topLeft = Offset(2.dp.toPx(), 2.dp.toPx()),
-                    size = Size(size.width - 4.dp.toPx(), size.height - 4.dp.toPx()),
-                    style = Stroke(width = 3.dp.toPx())
-                )
-            }
-        }
-    }
-    Spacer(Modifier.height(14.dp))
-    Text(
-        when {
-            pending != null -> "در انتظار تأیید"
-            armed == true -> "فعال"
-            armed == false -> "غیرفعال"
-            else -> "نامشخص"
-        },
-        style = MaterialTheme.typography.titleMedium,
-        color = c.text
-    )
-}
-
-@Composable
-private fun ArmButton(armed: Boolean?, pending: Boolean?, onClick: () -> Unit) {
-    val c = Tivan
-    val isArmed = armed == true
+    val ink = if (selected) androidx.compose.ui.graphics.Color.White.takeIf { selectedFill != c.ink } ?: c.onInk else c.text
     Surface(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
-        color = if (isArmed) c.on else c.alarm,
-        enabled = pending == null
+        enabled = enabled,
+        modifier = modifier.height(96.dp),
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp),
+        color = if (selected) selectedFill else c.tileOff
     ) {
-        Box(Modifier.padding(vertical = 14.dp), contentAlignment = Alignment.Center) {
-            Text(
-                when {
-                    pending != null -> "در حال ارسال…"
-                    isArmed -> "غیرفعال کردن دزدگیر"
-                    else -> "فعال کردن دزدگیر"
-                },
-                style = MaterialTheme.typography.titleSmall,
-                color = androidx.compose.ui.graphics.Color.White
-            )
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(emoji, style = MaterialTheme.typography.headlineSmall)
+            Spacer(Modifier.height(4.dp))
+            Text(text, style = MaterialTheme.typography.titleSmall, color = ink)
         }
     }
 }
@@ -250,7 +201,7 @@ private fun ArmButton(armed: Boolean?, pending: Boolean?, onClick: () -> Unit) {
 fun LogRow(incoming: Boolean, body: String, age: String) {
     val c = Tivan
     GlassCard(Modifier.fillMaxWidth(), corner = 16.dp) {
-        Row(Modifier.padding(13.dp)) {
+        Row(Modifier.padding(14.dp)) {
             Box(
                 Modifier
                     .padding(top = 5.dp)
@@ -260,7 +211,7 @@ fun LogRow(incoming: Boolean, body: String, age: String) {
             )
             Spacer(Modifier.width(11.dp))
             Column(Modifier.weight(1f)) {
-                Text(body, style = MaterialTheme.typography.labelMedium, color = c.text)
+                Text(body, style = MaterialTheme.typography.titleSmall, color = c.text)
                 Text(
                     "${if (incoming) "دریافتی" else "ارسالی"} · $age",
                     style = MaterialTheme.typography.labelSmall,
@@ -281,7 +232,7 @@ fun EmptyHint(text: String) {
                 .padding(vertical = 26.dp),
             contentAlignment = Alignment.Center
         ) {
-            Text(text, style = MaterialTheme.typography.bodySmall, color = c.dim2)
+            Text(text, style = MaterialTheme.typography.bodyMedium, color = c.dim)
         }
     }
 }

@@ -567,8 +567,7 @@ fun RenameDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = if (c.dark) androidx.compose.ui.graphics.Color(0xFF141828)
-        else androidx.compose.ui.graphics.Color.White,
+        containerColor = c.bg,
         title = { Text(title, style = MaterialTheme.typography.titleMedium, color = c.text) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState())) {
@@ -623,8 +622,7 @@ private fun TimerDialog(outputNumber: Int, onDismiss: () -> Unit, onSend: (Strin
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = if (c.dark) androidx.compose.ui.graphics.Color(0xFF141828)
-        else androidx.compose.ui.graphics.Color.White,
+        containerColor = c.bg,
         title = {
             Text(
                 "تایمر خروجی ${RelativeTime.fa(outputNumber)}",
@@ -768,8 +766,7 @@ private fun ScheduleDialog(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = if (c.dark) androidx.compose.ui.graphics.Color(0xFF141828)
-        else androidx.compose.ui.graphics.Color.White,
+        containerColor = c.bg,
         contentColor = c.text,
         dragHandle = { BottomSheetDefaults.DragHandle() }
     ) {

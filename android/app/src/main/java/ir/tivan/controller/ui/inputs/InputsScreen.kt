@@ -290,8 +290,7 @@ private fun ResponseDialog(
     val c = Tivan
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = if (c.dark) androidx.compose.ui.graphics.Color(0xFF141828)
-        else androidx.compose.ui.graphics.Color.White,
+        containerColor = c.bg,
         title = {
             Text(
                 "واکنش به تحریک ورودی ${RelativeTime.fa(inputNumber)}",

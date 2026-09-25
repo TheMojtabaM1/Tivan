@@ -14,20 +14,19 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import ir.tivan.controller.ui.theme.CurrentLayout
 import ir.tivan.controller.ui.theme.Tivan
 
 /**
- * The frosted-card look, faked with layered translucent gradients rather than a
- * real blur. `RenderEffect.createBlurEffect` only exists on API 31+ and costs a
- * full-screen readback every frame; these cards are cheap enough to scroll at
- * 120 Hz on low-end hardware and look identical against the app's own gradient
- * background.
+ * The basic "کاشی" block every screen is built from: a solid, rounded tile.
+ * No gradients or hairline borders — in the tile design the fill color itself
+ * carries the meaning, so a border is only drawn when a caller asks for one
+ * (e.g. to mark a selected tile).
  */
 @Composable
 fun GlassCard(
@@ -40,24 +39,16 @@ fun GlassCard(
 ) {
     val c = Tivan
     val shape: Shape = RoundedCornerShape(corner ?: CurrentLayout.cardCorner)
-    val base = tint ?: c.glass
 
     var m = modifier
         .clip(shape)
-        .background(
-            Brush.verticalGradient(
-                listOf(
-                    base.copy(alpha = (base.alpha * 1.35f).coerceAtMost(1f)),
-                    base
-                )
-            )
-        )
-        .border(1.dp, borderTint ?: c.stroke, shape)
+        .background(tint ?: c.glass)
+    if (borderTint != null && borderTint != c.stroke) m = m.border(2.dp, borderTint, shape)
 
     if (onClick != null) {
         m = m.clickable(
             interactionSource = remember { MutableInteractionSource() },
-            indication = rememberRipple(color = c.primary),
+            indication = rememberRipple(color = c.text),
             onClick = onClick
         )
     }
@@ -65,7 +56,7 @@ fun GlassCard(
     Column(modifier = m, content = content)
 }
 
-/** Small rounded status chip: "روشن", "منتظر تأیید", "۲۴°C". */
+/** Solid rounded status chip: "روشن", "منتظر تأیید", "۲۴°C". */
 @Composable
 fun StatusPill(
     text: String,
@@ -74,12 +65,15 @@ fun StatusPill(
 ) {
     Box(
         modifier
-            .clip(RoundedCornerShape(9.dp))
-            .background(color.copy(alpha = 0.16f))
-            .border(1.dp, color.copy(alpha = 0.34f), RoundedCornerShape(9.dp))
-            .padding(horizontal = 10.dp, vertical = 5.dp)
+            .clip(RoundedCornerShape(99.dp))
+            .background(color)
+            .padding(horizontal = 12.dp, vertical = 6.dp)
     ) {
-        Text(text, style = MaterialTheme.typography.labelSmall, color = color)
+        Text(
+            text,
+            style = MaterialTheme.typography.labelMedium,
+            color = if (color.luminance() > 0.5f) Color(0xFF1B1F16) else Color.White
+        )
     }
 }
 
@@ -87,21 +81,19 @@ fun StatusPill(
 @Composable
 fun IconTile(
     emoji: String,
-    size: Dp = 42.dp,
-    corner: Dp = 14.dp,
+    size: Dp = 48.dp,
+    corner: Dp = 16.dp,
     tint: Color? = null,
     borderTint: Color? = null
 ) {
     val c = Tivan
-    Box(
-        Modifier
-            .size(size)
-            .clip(RoundedCornerShape(corner))
-            .background(tint ?: c.glassStrong)
-            .border(1.dp, borderTint ?: c.stroke, RoundedCornerShape(corner)),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(emoji, style = MaterialTheme.typography.titleMedium)
+    var m = Modifier
+        .size(size)
+        .clip(RoundedCornerShape(corner))
+        .background(tint ?: c.tileOff)
+    if (borderTint != null && borderTint != c.stroke) m = m.border(2.dp, borderTint, RoundedCornerShape(corner))
+    Box(m, contentAlignment = Alignment.Center) {
+        Text(emoji, style = MaterialTheme.typography.titleLarge)
     }
 }
 
@@ -116,9 +108,9 @@ fun SectionHeader(title: String, hint: String? = null) {
         verticalAlignment = Alignment.Bottom,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Text(title, style = MaterialTheme.typography.titleLarge, color = c.text)
+        Text(title, style = MaterialTheme.typography.headlineSmall, color = c.text)
         if (hint != null) {
-            Text(hint, style = MaterialTheme.typography.labelSmall, color = c.dim2)
+            Text(hint, style = MaterialTheme.typography.labelMedium, color = c.dim)
         }
     }
 }

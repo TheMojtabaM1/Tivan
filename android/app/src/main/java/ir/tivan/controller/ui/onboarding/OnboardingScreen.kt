@@ -8,7 +8,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import ir.tivan.controller.ui.components.GlassCard
@@ -27,7 +26,7 @@ fun OnboardingScreen(onChoose: (UiMode) -> Unit) {
     Box(
         Modifier
             .fillMaxSize()
-            .background(Brush.linearGradient(listOf(c.bg, c.bg2, c.bg)))
+            .background(c.bg)
     ) {
         Column(
             Modifier
@@ -69,17 +68,17 @@ fun OnboardingScreen(onChoose: (UiMode) -> Unit) {
 @Composable
 private fun ModeCard(emoji: String, title: String, desc: String, onClick: () -> Unit) {
     val c = Tivan
-    GlassCard(Modifier.fillMaxWidth(), corner = 22.dp, onClick = onClick) {
-        Row(Modifier.padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconTile(emoji, size = 48.dp, corner = 16.dp)
+    GlassCard(Modifier.fillMaxWidth(), corner = 22.dp, tint = c.tileOn, onClick = onClick) {
+        Row(Modifier.padding(22.dp), verticalAlignment = Alignment.CenterVertically) {
+            IconTile(emoji, size = 56.dp, corner = 18.dp, tint = c.bg)
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.titleLarge, color = c.text)
+                Text(title, style = MaterialTheme.typography.headlineSmall, color = c.tileOnInk)
                 Spacer(Modifier.height(4.dp))
                 Text(
                     desc,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = c.dim,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = c.tileOnInk.copy(alpha = 0.75f),
                     textAlign = TextAlign.Start
                 )
             }

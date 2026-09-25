@@ -51,59 +51,34 @@ fun SettingsScreen(viewModel: MainViewModel, prefs: AppPreferences, header: @Com
             SectionHeader("تنظیمات", "پیکربندی کامل دستگاه")
         }
 
-        // Horizontal tab strip — six sections is too many for a bottom bar but
-        // fits comfortably here, and keeps each page short enough to scan.
-        // Shape branches by layout like every other screen: Flat drops the
-        // pill background for a plain underline, Card keeps the rounded pill.
-        val layout = CurrentLayout
+        // Sections as a row of square tiles — the chosen one turns yellow,
+        // like an output that's on.
         Row(
             Modifier
                 .horizontalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(if (layout == TivanLayout.FLAT) 18.dp else 7.dp)
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             SettingsTab.entries.forEach { t ->
                 val sel = t == tab
-                when (layout) {
-                    TivanLayout.FLAT ->
-                        Column(
-                            Modifier.clickable { tab = t },
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Text(
-                                t.label,
-                                style = MaterialTheme.typography.labelMedium,
-                                color = if (sel) c.text else c.dim2
-                            )
-                            Spacer(Modifier.height(6.dp))
-                            Box(
-                                Modifier
-                                    .width(22.dp)
-                                    .height(2.dp)
-                                    .background(if (sel) c.primary else Color.Transparent)
-                            )
-                        }
-
-                    TivanLayout.CARD -> {
-                        val shape = RoundedCornerShape(13.dp)
-                        Row(
-                            Modifier
-                                .clip(shape)
-                                .background(if (sel) c.primary.copy(alpha = 0.22f) else c.glassStrong)
-                                .border(1.dp, if (sel) c.primary.copy(alpha = 0.5f) else c.stroke, shape)
-                                .clickable { tab = t }
-                                .padding(horizontal = 12.dp, vertical = 9.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(t.emoji, style = MaterialTheme.typography.labelMedium)
-                            Spacer(Modifier.width(6.dp))
-                            Text(
-                                t.label,
-                                style = MaterialTheme.typography.labelMedium,
-                                color = if (sel) c.text else c.dim2
-                            )
-                        }
-                    }
+                Column(
+                    Modifier
+                        .size(width = 92.dp, height = 88.dp)
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(if (sel) c.tileOn else c.tileOff)
+                        .clickable { tab = t }
+                        .padding(8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Text(t.emoji, style = MaterialTheme.typography.headlineSmall)
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        t.label,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = if (sel) c.tileOnInk else c.text,
+                        maxLines = 1
+                    )
                 }
             }
         }
@@ -225,85 +200,38 @@ private fun AppearanceTab(prefs: AppPreferences) {
 }
 
 @Composable
-private fun LayoutRow(layout: TivanLayout, selected: Boolean, onClick: () -> Unit) {
-    val c = Tivan
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(if (selected) c.primary.copy(alpha = 0.14f) else c.glassStrong)
-            .border(
-                1.dp,
-                if (selected) c.primary.copy(alpha = 0.5f) else c.stroke,
-                RoundedCornerShape(16.dp)
-            )
-            .clickable(onClick = onClick)
-            .padding(12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        // A tiny swatch showing this layout's own corner radius, so the
-        // picker shows what it means rather than just naming it.
-        Box(
-            Modifier
-                .size(36.dp)
-                .clip(RoundedCornerShape(layout.cardCorner.coerceIn(3.dp, 16.dp)))
-                .background(c.glassStrong)
-                .border(1.dp, c.stroke, RoundedCornerShape(layout.cardCorner.coerceIn(3.dp, 16.dp)))
-        )
-        Spacer(Modifier.width(12.dp))
-        Column(Modifier.weight(1f)) {
-            Text(layout.label, style = MaterialTheme.typography.titleSmall, color = c.text)
-            Text(layout.description, style = MaterialTheme.typography.labelSmall, color = c.dim2)
-        }
-        if (selected) StatusPill("فعال", c.primary)
-    }
-}
-
-@Composable
 private fun PaletteRow(palette: TivanPalette, selected: Boolean, onClick: () -> Unit) {
     val c = Tivan
     val tokens = ir.tivan.controller.ui.theme.tokensFor(palette)
+    val ink = if (selected) c.tileOnInk else c.text
     Row(
         Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .background(if (selected) c.primary.copy(alpha = 0.14f) else c.glassStrong)
-            .border(
-                1.dp,
-                if (selected) c.primary.copy(alpha = 0.5f) else c.stroke,
-                RoundedCornerShape(16.dp)
-            )
+            .background(if (selected) c.tileOn else c.tileOff)
             .clickable(onClick = onClick)
-            .padding(12.dp),
+            .padding(14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // A tiny live swatch of the palette's own colors, so the picker shows
-        // what it means rather than just naming it.
-        Box(
+        // A tiny live preview: the palette's ground with an "on" and "off" tile on it.
+        Row(
             Modifier
-                .size(36.dp)
-                .clip(RoundedCornerShape(10.dp))
+                .clip(RoundedCornerShape(12.dp))
                 .background(tokens.bg)
-                .border(1.dp, tokens.stroke, RoundedCornerShape(10.dp))
+                .padding(6.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            Box(
-                Modifier
-                    .padding(6.dp)
-                    .size(10.dp)
-                    .clip(RoundedCornerShape(3.dp))
-                    .background(tokens.primary)
-            )
+            Box(Modifier.size(16.dp).clip(RoundedCornerShape(5.dp)).background(tokens.tileOn))
+            Box(Modifier.size(16.dp).clip(RoundedCornerShape(5.dp)).background(tokens.tileOff))
         }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            Text(palette.label, style = MaterialTheme.typography.titleSmall, color = c.text)
-            Text(palette.description, style = MaterialTheme.typography.labelSmall, color = c.dim2)
+            Text(palette.label, style = MaterialTheme.typography.titleSmall, color = ink)
+            Text(palette.description, style = MaterialTheme.typography.labelMedium, color = ink.copy(alpha = 0.7f))
         }
-        if (selected) StatusPill("فعال", c.primary)
     }
 }
 
-// ---------------------------------------------------------------- numbers ---
 @Composable
 private fun NumbersTab(viewModel: MainViewModel) {
     val c = Tivan
@@ -707,20 +635,15 @@ private fun AdvancedTab(viewModel: MainViewModel) {
 private fun SettingsGroup(title: String, content: @Composable ColumnScope.() -> Unit) {
     val c = Tivan
     GlassCard(Modifier.fillMaxWidth()) {
-        Column {
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 15.dp, vertical = 13.dp)
-            ) {
-                Text(title, style = MaterialTheme.typography.titleSmall, color = c.text)
-            }
-            Box(Modifier.fillMaxWidth().height(1.dp).background(c.stroke))
-            Column(Modifier.padding(15.dp), content = content)
+        Column(Modifier.padding(18.dp)) {
+            Text(title, style = MaterialTheme.typography.titleLarge, color = c.text)
+            Spacer(Modifier.height(12.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp), content = content)
         }
     }
 }
 
+/** A setting that's on or off, drawn as its own small tile: yellow when on. */
 @Composable
 private fun ToggleRow(
     title: String,
@@ -732,56 +655,58 @@ private fun ToggleRow(
     Row(
         Modifier
             .fillMaxWidth()
-            .padding(vertical = 9.dp),
+            .clip(RoundedCornerShape(16.dp))
+            .background(if (checked) c.tileOn else c.tileOff)
+            .clickable { onChange(!checked) }
+            .padding(14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        val ink = if (checked) c.tileOnInk else c.text
         Column(Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.bodySmall, color = c.text)
-            Text(subtitle, style = MaterialTheme.typography.labelSmall, color = c.dim2)
+            Text(title, style = MaterialTheme.typography.titleSmall, color = ink)
+            Text(subtitle, style = MaterialTheme.typography.labelMedium, color = ink.copy(alpha = 0.7f))
         }
         Spacer(Modifier.width(10.dp))
-        Switch(
-            checked = checked,
-            onCheckedChange = onChange,
-            colors = SwitchDefaults.colors(
-                checkedThumbColor = androidx.compose.ui.graphics.Color.White,
-                checkedTrackColor = c.on
-            )
-        )
+        StatusPill(if (checked) "روشن" else "خاموش", if (checked) c.ink else c.dim2)
     }
 }
 
+/** One choice out of several — the chosen tile is yellow. */
 @Composable
 private fun RadioRow(label: String, command: String, selected: Boolean, onClick: () -> Unit) {
     val c = Tivan
+    val ink = if (selected) c.tileOnInk else c.text
     Row(
         Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(16.dp))
+            .background(if (selected) c.tileOn else c.tileOff)
             .clickable(onClick = onClick)
-            .padding(vertical = 7.dp, horizontal = 2.dp),
+            .padding(14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        RadioButton(selected = selected, onClick = onClick)
-        Spacer(Modifier.width(4.dp))
-        Text(label, style = MaterialTheme.typography.bodySmall, color = c.text, modifier = Modifier.weight(1f))
-        Text(command, style = MaterialTheme.typography.labelSmall, color = c.dim2)
+        Text(if (selected) "●" else "○", style = MaterialTheme.typography.titleMedium, color = ink)
+        Spacer(Modifier.width(10.dp))
+        Text(label, style = MaterialTheme.typography.titleSmall, color = ink, modifier = Modifier.weight(1f))
+        Text(command, style = MaterialTheme.typography.labelMedium, color = ink.copy(alpha = 0.6f))
     }
 }
 
+/** Sends one command to the device — a big outlined button. */
 @Composable
 private fun ActionButton(label: String, command: String, onClick: () -> Unit) {
     val c = Tivan
     Row(
         Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(13.dp))
+            .clip(RoundedCornerShape(16.dp))
+            .border(2.dp, c.ink, RoundedCornerShape(16.dp))
             .clickable(onClick = onClick)
-            .padding(vertical = 10.dp, horizontal = 4.dp),
+            .padding(14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(label, style = MaterialTheme.typography.bodySmall, color = c.text, modifier = Modifier.weight(1f))
-        StatusPill(command, c.primary)
+        Text(label, style = MaterialTheme.typography.titleSmall, color = c.text, modifier = Modifier.weight(1f))
+        Text(command, style = MaterialTheme.typography.labelMedium, color = c.dim)
     }
 }
 
@@ -791,22 +716,22 @@ private fun DangerRow(title: String, subtitle: String, onClick: () -> Unit) {
     var confirm by remember { mutableStateOf(false) }
     GlassCard(
         Modifier.fillMaxWidth(),
-        tint = c.alarm.copy(alpha = 0.1f),
-        borderTint = c.alarm.copy(alpha = 0.35f),
+        tint = c.alarm,
         onClick = { confirm = true }
     ) {
-        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("⚠", style = MaterialTheme.typography.headlineSmall, color = androidx.compose.ui.graphics.Color.White)
+            Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.titleSmall, color = c.alarm)
-                Text(subtitle, style = MaterialTheme.typography.labelSmall, color = c.dim2)
+                Text(title, style = MaterialTheme.typography.titleSmall, color = androidx.compose.ui.graphics.Color.White)
+                Text(subtitle, style = MaterialTheme.typography.labelMedium, color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.85f))
             }
         }
     }
     if (confirm) {
         AlertDialog(
             onDismissRequest = { confirm = false },
-            containerColor = if (c.dark) androidx.compose.ui.graphics.Color(0xFF141828)
-            else androidx.compose.ui.graphics.Color.White,
+            containerColor = c.bg,
             title = { Text(title, color = c.text) },
             text = { Text(subtitle, color = c.dim) },
             confirmButton = {
@@ -824,6 +749,6 @@ private fun InfoLine(title: String, body: String) {
     val c = Tivan
     Column(Modifier.padding(vertical = 7.dp)) {
         Text(title, style = MaterialTheme.typography.titleSmall, color = c.text)
-        Text(body, style = MaterialTheme.typography.labelSmall, color = c.dim2)
+        Text(body, style = MaterialTheme.typography.bodySmall, color = c.dim)
     }
 }

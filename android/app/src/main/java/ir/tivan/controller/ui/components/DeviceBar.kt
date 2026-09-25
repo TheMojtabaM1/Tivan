@@ -133,7 +133,7 @@ fun DeviceSwitcherSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = if (c.dark) Color(0xFF141828) else Color.White,
+        containerColor = c.bg,
         contentColor = c.text,
         dragHandle = { BottomSheetDefaults.DragHandle() },
         // The sheet takes no inset of its own so the footer below can own the
@@ -253,7 +253,7 @@ fun DeviceSwitcherSheet(
             Column(
                 Modifier
                     .fillMaxWidth()
-                    .background(if (c.dark) Color(0xFF141828) else Color.White)
+                    .background(c.bg)
                     .padding(horizontal = 20.dp)
                     .padding(top = 14.dp)
                     .navigationBarsPadding()

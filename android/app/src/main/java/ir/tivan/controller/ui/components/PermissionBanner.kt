@@ -135,7 +135,7 @@ fun PermissionBanner(
         val install = "adb install -g -r TIVAN-Controller.apk"
         AlertDialog(
             onDismissRequest = { showHelp = false },
-            containerColor = if (c.dark) Color(0xFF141828) else Color.White,
+            containerColor = c.bg,
             title = {
                 Text(
                     "چرا Allow خاکستری است؟",

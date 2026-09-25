@@ -63,8 +63,8 @@ fun AdaptiveHero(
     val tint by animateColorAsState(
         targetValue = when (mood) {
             HeroMood.Normal -> c.glass
-            HeroMood.Pending -> c.pending.copy(alpha = 0.13f)
-            HeroMood.Alarm -> c.alarm.copy(alpha = 0.15f + alarmAlpha)
+            HeroMood.Pending -> c.pending.copy(alpha = 0.35f)
+            HeroMood.Alarm -> c.alarm.copy(alpha = 0.45f + alarmAlpha)
         },
         animationSpec = tween(350),
         label = "heroTint"
@@ -94,13 +94,13 @@ fun AdaptiveHero(
                     ) {
                         Text(
                             s.label,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = c.dim2
+                            style = MaterialTheme.typography.labelMedium,
+                            color = c.dim
                         )
                         Spacer(Modifier.height(3.dp))
                         Text(
                             s.value,
-                            style = MaterialTheme.typography.titleSmall,
+                            style = MaterialTheme.typography.titleLarge,
                             color = c.text
                         )
                         if (s.age != null) {
@@ -149,8 +149,7 @@ fun AdaptiveHero(
                                 emoji = emoji,
                                 size = 58.dp,
                                 corner = 20.dp,
-                                tint = accent.copy(alpha = 0.16f),
-                                borderTint = accent.copy(alpha = 0.38f)
+                                tint = c.tileOn
                             )
                             if (mood == HeroMood.Pending) PendingRing(accent)
                         }

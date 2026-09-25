@@ -204,11 +204,7 @@ private fun RootScreen(
     Box(
         Modifier
             .fillMaxSize()
-            .background(
-                Brush.linearGradient(
-                    listOf(c.bg, c.bg2, c.bg)
-                )
-            )
+            .background(c.bg)
     ) {
         Scaffold(
             containerColor = Color.Transparent,
@@ -216,8 +212,8 @@ private fun RootScreen(
                 SnackbarHost(snackbar) { data ->
                     Snackbar(
                         snackbarData = data,
-                        containerColor = if (c.dark) Color(0xFF1B2036) else Color(0xFF2A3050),
-                        contentColor = Color.White,
+                        containerColor = c.ink,
+                        contentColor = c.onInk,
                         shape = RoundedCornerShape(16.dp)
                     )
                 }
