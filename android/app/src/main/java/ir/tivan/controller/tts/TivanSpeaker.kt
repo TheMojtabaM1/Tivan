@@ -44,6 +44,7 @@ object TivanSpeaker {
     private var initFailed: Boolean? = null
     private val pending = mutableListOf<String>()
     private var track: AudioTrack? = null
+    private var usePcm16: Boolean = false
     /** The exception's own message, so a failure can actually be diagnosed instead of just reported as "doesn't work". */
     private var lastError: String? = null
 
@@ -66,7 +67,8 @@ object TivanSpeaker {
                     )
                 )
                 val engine = OfflineTts(assetManager = app.assets, config = config)
-                initAudioTrack(engine.sampleRate())
+                runCatching { initAudioTrack(engine.sampleRate()) }
+                    .onFailure { Log.e(TAG, "Failed to init AudioTrack, TTS will be silent", it) }
                 synchronized(pending) {
                     tts = engine
                     initFailed = false
@@ -128,7 +130,14 @@ object TivanSpeaker {
                     track?.apply {
                         stop()
                         flush()
-                        write(audio.samples, 0, audio.samples.size, AudioTrack.WRITE_BLOCKING)
+                        if (usePcm16) {
+                            val pcm = ShortArray(audio.samples.size) { i ->
+                                (audio.samples[i].coerceIn(-1f, 1f) * Short.MAX_VALUE).toInt().toShort()
+                            }
+                            write(pcm, 0, pcm.size, AudioTrack.WRITE_BLOCKING)
+                        } else {
+                            write(audio.samples, 0, audio.samples.size, AudioTrack.WRITE_BLOCKING)
+                        }
                         play()
                     }
                 }
@@ -139,25 +148,56 @@ object TivanSpeaker {
     }
 
     private fun initAudioTrack(sampleRate: Int) {
-        val bufLength = AudioTrack.getMinBufferSize(
+        // getMinBufferSize returns ERROR (-1) or ERROR_BAD_VALUE (-2) when the
+        // device's audio HAL rejects this encoding/rate/channel combo — on
+        // some devices that happens for ENCODING_PCM_FLOAT, so fall back to
+        // 16-bit PCM (and manually convert samples before writing) rather
+        // than handing AudioTrack's constructor a negative buffer size.
+        var floatMin = AudioTrack.getMinBufferSize(
             sampleRate,
             AudioFormat.CHANNEL_OUT_MONO,
             AudioFormat.ENCODING_PCM_FLOAT
         )
+        if (floatMin > 0) {
+            track = AudioTrack(
+                AudioAttributes.Builder()
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                    .build(),
+                AudioFormat.Builder()
+                    .setEncoding(AudioFormat.ENCODING_PCM_FLOAT)
+                    .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
+                    .setSampleRate(sampleRate)
+                    .build(),
+                floatMin.coerceAtLeast(sampleRate * 4), // several seconds of float-sample headroom for one short phrase
+                AudioTrack.MODE_STREAM,
+                AudioManager.AUDIO_SESSION_ID_GENERATE
+            )
+            usePcm16 = false
+            return
+        }
+
+        val pcm16Min = AudioTrack.getMinBufferSize(
+            sampleRate,
+            AudioFormat.CHANNEL_OUT_MONO,
+            AudioFormat.ENCODING_PCM_16BIT
+        )
+        val safeMin = if (pcm16Min > 0) pcm16Min else sampleRate * 2
         track = AudioTrack(
             AudioAttributes.Builder()
                 .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
                 .setUsage(AudioAttributes.USAGE_MEDIA)
                 .build(),
             AudioFormat.Builder()
-                .setEncoding(AudioFormat.ENCODING_PCM_FLOAT)
+                .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
                 .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
                 .setSampleRate(sampleRate)
                 .build(),
-            bufLength.coerceAtLeast(sampleRate), // several seconds of headroom for one short phrase
+            safeMin.coerceAtLeast(sampleRate * 2), // several seconds of headroom for one short phrase
             AudioTrack.MODE_STREAM,
             AudioManager.AUDIO_SESSION_ID_GENERATE
         )
+        usePcm16 = true
     }
 
     /**

@@ -233,7 +233,7 @@ private fun RootScreen(
                 if (devices.isEmpty()) {
                     EmptyState(onAdd = { sheetOpen = true })
                 } else {
-                    val header: @Composable () -> Unit = {
+                    val header: @Composable (Boolean) -> Unit = { includeHero ->
                         Column {
                             Spacer(Modifier.height(6.dp))
                             if (permissionState != SmsPermissions.State.Granted) {
@@ -265,29 +265,31 @@ private fun RootScreen(
                                     )
                                 }
                             }
-                            Spacer(Modifier.height(13.dp))
-                            HeroFor(
-                                alarmInput = alarm,
-                                pendingOutputs = outputs.filter { it.pending },
-                                pendingSecurity = pendingSecurity,
-                                securityArmed = status?.securityArmed,
-                                onCount = outputs.count { it.on == true },
-                                totalCount = outputs.size,
-                                antenna = status?.antenna,
-                                antennaAt = status?.antennaAt ?: 0L,
-                                temperature = status?.temperature,
-                                temperatureAt = status?.temperatureAt ?: 0L,
-                                lastContactAt = status?.lastContactAt ?: 0L
-                            )
+                            if (includeHero) {
+                                Spacer(Modifier.height(13.dp))
+                                HeroFor(
+                                    alarmInput = alarm,
+                                    pendingOutputs = outputs.filter { it.pending },
+                                    pendingSecurity = pendingSecurity,
+                                    securityArmed = status?.securityArmed,
+                                    onCount = outputs.count { it.on == true },
+                                    totalCount = outputs.size,
+                                    antenna = status?.antenna,
+                                    antennaAt = status?.antennaAt ?: 0L,
+                                    temperature = status?.temperature,
+                                    temperatureAt = status?.temperatureAt ?: 0L,
+                                    lastContactAt = status?.lastContactAt ?: 0L
+                                )
+                            }
                         }
                     }
 
                     when (tab) {
-                        Tab.Outputs -> OutputsScreen(viewModel, header)
-                        Tab.Inputs -> InputsScreen(viewModel, header)
-                        Tab.Security -> SecurityScreen(viewModel, header)
-                        Tab.Status -> StatusScreen(viewModel, header)
-                        Tab.Settings -> SettingsScreen(viewModel, prefs, header)
+                        Tab.Outputs -> OutputsScreen(viewModel) { header(true) }
+                        Tab.Inputs -> InputsScreen(viewModel) { header(true) }
+                        Tab.Security -> SecurityScreen(viewModel) { header(true) }
+                        Tab.Status -> StatusScreen(viewModel) { header(true) }
+                        Tab.Settings -> SettingsScreen(viewModel, prefs) { header(false) }
                     }
                 }
             }
