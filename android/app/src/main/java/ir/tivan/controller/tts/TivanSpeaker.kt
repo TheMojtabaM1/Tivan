@@ -1,73 +1,170 @@
 package ir.tivan.controller.tts
 
 import android.content.Context
-import android.speech.tts.TextToSpeech
-import android.speech.tts.TextToSpeech.QUEUE_ADD
-import java.util.Locale
+import android.media.AudioAttributes
+import android.media.AudioFormat
+import android.media.AudioManager
+import android.media.AudioTrack
+import android.util.Log
+import com.k2fsa.sherpa.onnx.GenerationConfig
+import com.k2fsa.sherpa.onnx.OfflineTts
+import com.k2fsa.sherpa.onnx.OfflineTtsConfig
+import com.k2fsa.sherpa.onnx.OfflineTtsModelConfig
+import com.k2fsa.sherpa.onnx.OfflineTtsVitsModelConfig
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import java.io.File
+import java.io.FileOutputStream
 
 /**
- * Thin wrapper over Android's built-in TextToSpeech engine, spoken in
- * Persian when a Persian voice is installed. This is the OS's own
- * (robotic-sounding) reader, not a cloud voice — no network call, no extra
- * latency, works offline. Lazily initialized on first use and kept alive
- * for the process lifetime; safe to call [speak] before init finishes since
- * utterances just queue.
+ * A real Persian neural voice embedded directly in the app — not Android's
+ * system TextToSpeech, which most phones simply have no Persian voice
+ * installed for (that was the previous, unfixable approach: it depended on
+ * whatever engine/language the phone happened to have). This wraps
+ * sherpa-onnx (see `libs/sherpa-onnx-1.13.8.aar` and the vendored JNI
+ * bindings in `com.k2fsa.sherpa.onnx`) running an offline Piper VITS model
+ * for Persian (`assets/tts-fa/`, model card: fa-haaniye_low), so speech
+ * synthesis happens on-device with no network call and no dependency on
+ * what the phone ships.
  *
- * Most phones don't ship a Persian voice pack out of the box —
- * `setLanguage(fa-IR)` returning LANG_MISSING_DATA/LANG_NOT_SUPPORTED is the
- * common case, not the exception. Previously that left [ready] permanently
- * false and every announcement silently queued forever. Now a missing
- * Persian voice falls back to the engine's default language — still
- * announces the moment, just possibly with a non-Persian accent — instead
- * of staying mute.
+ * Model + espeak-ng-data load takes a moment, so init happens once on a
+ * background thread; [speak] calls made before that finishes are queued.
  */
 object TivanSpeaker {
-    private var tts: TextToSpeech? = null
-    private var ready = false
-    /** Set once init's callback fires — null means "still waiting", not "failed". */
+    private const val TAG = "TivanSpeaker"
+    private const val ASSET_DIR = "tts-fa"
+    private const val MODEL_FILE = "fa-haaniye_low.onnx"
+    private const val TOKENS_FILE = "tokens.txt"
+
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private var tts: OfflineTts? = null
+    /** Set once loading finishes — null means "still loading", not "failed". */
     private var initFailed: Boolean? = null
     private val pending = mutableListOf<String>()
+    private var track: AudioTrack? = null
 
     fun init(context: Context) {
-        if (tts != null) return
-        tts = TextToSpeech(context.applicationContext) { status ->
-            if (status == TextToSpeech.SUCCESS) {
-                val engine = tts ?: return@TextToSpeech
-                val result = engine.setLanguage(Locale("fa", "IR"))
-                if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
-                    // No Persian voice installed — fall back to the device's
-                    // default language rather than staying silent.
-                    engine.setLanguage(Locale.getDefault())
+        if (tts != null || initFailed != null) return
+        val app = context.applicationContext
+        scope.launch {
+            try {
+                val dataDir = copyEspeakData(app)
+                val config = OfflineTtsConfig(
+                    model = OfflineTtsModelConfig(
+                        vits = OfflineTtsVitsModelConfig(
+                            model = "$ASSET_DIR/$MODEL_FILE",
+                            tokens = "$ASSET_DIR/$TOKENS_FILE",
+                            dataDir = dataDir
+                        ),
+                        numThreads = 2,
+                        debug = false,
+                        provider = "cpu"
+                    )
+                )
+                val engine = OfflineTts(assetManager = app.assets, config = config)
+                initAudioTrack(engine.sampleRate())
+                synchronized(pending) {
+                    tts = engine
+                    initFailed = false
                 }
-                ready = true
-                initFailed = false
-                pending.forEach { engine.speak(it, QUEUE_ADD, null, it.hashCode().toString()) }
-                pending.clear()
-            } else {
-                // No speech engine could be found/bound at all — genuinely
-                // nothing this app can do about it on this device.
+                flushPending()
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to load embedded TTS engine", e)
                 initFailed = true
             }
         }
     }
 
-    /** null = still initializing, true = a working engine is ready, false = no engine on this device. */
+    /** null = still loading, true = ready to speak, false = failed to load (corrupt/missing assets). */
     fun isAvailable(): Boolean? = initFailed?.let { !it }
 
     fun speak(text: String) {
+        if (text.isBlank()) return
         val engine = tts
-        if (engine != null && ready) {
-            engine.speak(text, QUEUE_ADD, null, text.hashCode().toString())
-        } else {
-            pending.add(text)
-            // Init failed or hasn't finished after a while — don't grow forever.
-            if (pending.size > 20) pending.removeAt(0)
+        if (engine != null) {
+            speakNow(engine, text)
+        } else if (initFailed != true) {
+            synchronized(pending) {
+                pending.add(text)
+                if (pending.size > 20) pending.removeAt(0)
+            }
         }
     }
 
-    fun shutdown() {
-        tts?.shutdown()
-        tts = null
-        ready = false
+    private fun flushPending() {
+        val engine = tts ?: return
+        val queued = synchronized(pending) { pending.toList().also { pending.clear() } }
+        queued.forEach { speakNow(engine, it) }
+    }
+
+    private fun speakNow(engine: OfflineTts, text: String) {
+        scope.launch {
+            try {
+                val audio = engine.generateWithConfig(text, GenerationConfig())
+                if (audio.samples.isNotEmpty()) {
+                    track?.apply {
+                        stop()
+                        flush()
+                        write(audio.samples, 0, audio.samples.size, AudioTrack.WRITE_BLOCKING)
+                        play()
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "TTS synthesis failed for \"$text\"", e)
+            }
+        }
+    }
+
+    private fun initAudioTrack(sampleRate: Int) {
+        val bufLength = AudioTrack.getMinBufferSize(
+            sampleRate,
+            AudioFormat.CHANNEL_OUT_MONO,
+            AudioFormat.ENCODING_PCM_FLOAT
+        )
+        track = AudioTrack(
+            AudioAttributes.Builder()
+                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                .setUsage(AudioAttributes.USAGE_MEDIA)
+                .build(),
+            AudioFormat.Builder()
+                .setEncoding(AudioFormat.ENCODING_PCM_FLOAT)
+                .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
+                .setSampleRate(sampleRate)
+                .build(),
+            bufLength.coerceAtLeast(sampleRate), // several seconds of headroom for one short phrase
+            AudioTrack.MODE_STREAM,
+            AudioManager.AUDIO_SESSION_ID_GENERATE
+        )
+    }
+
+    /**
+     * espeak-ng (a plain C library) needs real files on disk, not Android's
+     * compressed asset archive — copied once to internal storage and reused
+     * on every later launch.
+     */
+    private fun copyEspeakData(context: Context): String {
+        val destRoot = File(context.filesDir, ASSET_DIR)
+        val marker = File(destRoot, ".copied")
+        if (marker.exists()) return File(destRoot, "espeak-ng-data").absolutePath
+
+        destRoot.mkdirs()
+        copyAssetDir(context, "$ASSET_DIR/espeak-ng-data", File(destRoot, "espeak-ng-data"))
+        marker.createNewFile()
+        return File(destRoot, "espeak-ng-data").absolutePath
+    }
+
+    private fun copyAssetDir(context: Context, assetPath: String, destDir: File) {
+        val entries = context.assets.list(assetPath) ?: emptyArray()
+        if (entries.isEmpty()) {
+            destDir.parentFile?.mkdirs()
+            context.assets.open(assetPath).use { input ->
+                FileOutputStream(destDir).use { output -> input.copyTo(output) }
+            }
+            return
+        }
+        destDir.mkdirs()
+        entries.forEach { name -> copyAssetDir(context, "$assetPath/$name", File(destDir, name)) }
     }
 }

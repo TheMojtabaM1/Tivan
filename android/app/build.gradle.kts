@@ -46,6 +46,21 @@ android {
         resourceConfigurations += listOf("fa", "en")
 
         ksp { arg("room.schemaLocation", "$projectDir/schemas") }
+
+        // The embedded Persian TTS engine (sherpa-onnx) ships native .so per
+        // ABI; every real phone sold in the last decade is one of these two,
+        // so dropping x86/x86_64 (emulator-only) roughly halves what it adds
+        // to the APK.
+        ndk {
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
+        }
+    }
+
+    // The bundled Piper model is a single large binary asset — stored
+    // uncompressed so AssetManager can read it directly instead of paying a
+    // deflate/inflate cost on every app start.
+    androidResources {
+        noCompress += "onnx"
     }
 
     signingConfigs {
@@ -124,6 +139,11 @@ android {
 }
 
 dependencies {
+    // Embedded offline Persian TTS engine — a real neural voice bundled in
+    // the app itself, independent of whatever (or nothing) the phone's own
+    // Android TextToSpeech has installed. See tts/TivanSpeaker.kt.
+    implementation(files("libs/sherpa-onnx-1.13.8.aar"))
+
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.4")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.4")
