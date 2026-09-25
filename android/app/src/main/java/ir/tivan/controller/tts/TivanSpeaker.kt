@@ -70,7 +70,7 @@ object TivanSpeaker {
                     initFailed = false
                 }
                 flushPending()
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 Log.e(TAG, "Failed to load embedded TTS engine", e)
                 initFailed = true
             }
@@ -111,7 +111,7 @@ object TivanSpeaker {
                         play()
                     }
                 }
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 Log.e(TAG, "TTS synthesis failed for \"$text\"", e)
             }
         }
