@@ -130,6 +130,12 @@ object TivanSpeaker {
                     track?.apply {
                         stop()
                         flush()
+                        // MODE_STREAM only drains its internal buffer while playing, so a
+                        // blocking write() issued before play() can only ever fill that one
+                        // buffer (a couple of seconds) and then has nothing left to hand the
+                        // rest of a longer phrase to — play() must start first so the track
+                        // is actively consuming while the rest of write() blocks and feeds it.
+                        play()
                         if (usePcm16) {
                             val pcm = ShortArray(audio.samples.size) { i ->
                                 (audio.samples[i].coerceIn(-1f, 1f) * Short.MAX_VALUE).toInt().toShort()
@@ -138,7 +144,6 @@ object TivanSpeaker {
                         } else {
                             write(audio.samples, 0, audio.samples.size, AudioTrack.WRITE_BLOCKING)
                         }
-                        play()
                     }
                 }
             } catch (e: Throwable) {

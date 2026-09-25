@@ -224,6 +224,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         result.triggeredInputs.firstOrNull()?.let { idx ->
             _alarm.value = idx
             emitToast("تحریک ورودی ${idx + 1}")
+            speak(device.inputMessage(idx))
         }
 
         if (result.recognized && !settled) {
