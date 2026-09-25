@@ -51,12 +51,12 @@ private enum class Tab(val label: String, val emoji: String, val simpleLabel: St
     Outputs("خروجی", "⚡", simpleLabel = "کنترل"),
     Inputs("ورودی", "📥"),
     Security("دزدگیر", "🛡"),
-    Status("وضعیت", "📊"),
+    Status("وضعیت", "📊", simpleLabel = "گزارش"),
     Settings("تنظیمات", "⚙")
 }
 
-/** Tabs shown in simple mode — outputs and security, with everything else under Settings. */
-private val SIMPLE_TABS = listOf(Tab.Outputs, Tab.Security, Tab.Settings)
+/** Tabs shown in simple mode — control, usage report and settings; security is on the control tab itself. */
+private val SIMPLE_TABS = listOf(Tab.Outputs, Tab.Status, Tab.Settings)
 
 class MainActivity : ComponentActivity() {
 
@@ -393,7 +393,7 @@ private fun BottomBar(tabs: List<Tab>, current: Tab, simple: Boolean, onSelect: 
     Column(
         Modifier
             .fillMaxWidth()
-            .background(if (c.dark) Color(0xE60A0C16) else Color(0xF2FFFFFF))
+            .background(c.glass)
     ) {
         Box(Modifier.fillMaxWidth().height(1.dp).background(c.stroke))
         Row(
@@ -407,21 +407,21 @@ private fun BottomBar(tabs: List<Tab>, current: Tab, simple: Boolean, onSelect: 
                 Column(
                     Modifier
                         .weight(1f)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(if (sel) c.primary.copy(alpha = 0.16f) else Color.Transparent)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(if (sel) c.tileOn else Color.Transparent)
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null
                         ) { onSelect(t) }
-                        .padding(vertical = 7.dp),
+                        .padding(vertical = 9.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(t.emoji, style = MaterialTheme.typography.titleMedium)
                     Spacer(Modifier.height(3.dp))
                     Text(
                         if (simple) t.simpleLabel else t.label,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = if (sel) c.text else c.dim2,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = if (sel) c.tileOnInk else c.dim,
                         textAlign = TextAlign.Center
                     )
                 }

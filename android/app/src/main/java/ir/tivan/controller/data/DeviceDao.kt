@@ -44,6 +44,10 @@ interface MessageLogDao {
     @Query("SELECT * FROM message_logs WHERE deviceId = :deviceId ORDER BY timestamp DESC LIMIT 100")
     fun observeForDevice(deviceId: Long): Flow<List<MessageLog>>
 
+    /** Every log since [since] — unlike [observeForDevice], not capped, so a month of history fits. */
+    @Query("SELECT * FROM message_logs WHERE deviceId = :deviceId AND timestamp >= :since ORDER BY timestamp ASC")
+    fun observeSince(deviceId: Long, since: Long): Flow<List<MessageLog>>
+
     @Insert
     suspend fun insert(log: MessageLog)
 

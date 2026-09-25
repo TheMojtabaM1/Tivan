@@ -1,4 +1,5 @@
 <resources>
     <string name="app_name">TIVAN Controller</string>
     <string name="notification_listener_label">خواندن پاسخ دستگاه TIVAN</string>
+    <string name="widget_description">کنترل سریع خروجی‌ها از صفحه اصلی گوشی</string>
 </resources>

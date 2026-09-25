@@ -195,6 +195,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
         val result = StatusParser.parse(device, body, previous)
         repo.saveStatus(result.status)
+        ir.tivan.controller.widget.TivanWidget.refresh(tivanApp)
 
         if (deviceId != selectedDevice.value?.id) return
 
@@ -425,6 +426,16 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private suspend fun emitToast(text: String) {
         _toast.emit(Toast(System.nanoTime(), text))
+    }
+
+    // ---- usage history ----------------------------------------------------------
+    /** Outgoing/incoming log for the selected device over the last [days] days (plus a day of lead-in for an output already on at the start). */
+    fun usageLogs(days: Int) = selectedDevice.flatMapLatest { d ->
+        if (d == null) flowOf(emptyList())
+        else tivanApp.database.messageLogDao().observeSince(
+            d.id,
+            System.currentTimeMillis() - (days + 1) * 24L * 3_600_000L
+        )
     }
 
     // ---- schedules ------------------------------------------------------------

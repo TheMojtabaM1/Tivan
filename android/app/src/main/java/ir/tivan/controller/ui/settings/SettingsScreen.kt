@@ -139,27 +139,12 @@ fun SettingsScreen(viewModel: MainViewModel, prefs: AppPreferences, header: @Com
 @Composable
 private fun AppearanceTab(prefs: AppPreferences) {
     val c = Tivan
-    val layout by prefs.layout.collectAsState()
     val palette by prefs.palette.collectAsState()
     val uiMode by prefs.uiMode.collectAsState()
 
-    SettingsGroup("چیدمان") {
+    SettingsGroup("حالت روز و شب") {
         Text(
-            "شکل ساختاری صفحه‌ها — روی همه‌ی تب‌ها اعمال می‌شود و بلافاصله تغییر می‌کند.",
-            style = MaterialTheme.typography.labelSmall,
-            color = c.dim
-        )
-        Spacer(Modifier.height(11.dp))
-        TivanLayout.entries.forEach { l ->
-            LayoutRow(layout = l, selected = l == layout, onClick = { prefs.setLayout(l) })
-            Spacer(Modifier.height(8.dp))
-        }
-    }
-
-    Spacer(Modifier.height(10.dp))
-    SettingsGroup("پالت رنگی") {
-        Text(
-            "رنگ‌بندی برنامه، مستقل از چیدمان — هر پالتی با هر چیدمانی قابل ترکیب است.",
+            "کاشی روشن برای روز، کاشی شب برای شب و چشم خسته.",
             style = MaterialTheme.typography.labelSmall,
             color = c.dim
         )

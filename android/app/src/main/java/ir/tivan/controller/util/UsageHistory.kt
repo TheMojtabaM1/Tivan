@@ -24,6 +24,7 @@ data class DayUsage(val label: String, val hours: Float, val isToday: Boolean)
 object UsageHistory {
     private val onOffPattern = Regex("^([1-8])([01])$")
     private val dayFormat = SimpleDateFormat("EEE", Locale("fa"))
+    private val dateFormat = SimpleDateFormat("d", Locale("fa"))
 
     fun computeDailyHours(logs: List<MessageLog>, outputIndex: Int, days: Int = 7): List<DayUsage> {
         val channel = (outputIndex + 1).toString()
@@ -63,7 +64,7 @@ object UsageHistory {
 
         return dayStarts.mapIndexed { i, start ->
             val isToday = i == dayStarts.lastIndex
-            DayUsage(dayFormat.format(start.time), (bucketMs[i] / 3_600_000.0).toFloat(), isToday)
+            DayUsage((if (days <= 7) dayFormat else dateFormat).format(start.time), (bucketMs[i] / 3_600_000.0).toFloat(), isToday)
         }
     }
 

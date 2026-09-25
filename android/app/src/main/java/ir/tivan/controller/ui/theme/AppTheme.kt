@@ -18,30 +18,23 @@ enum class TivanLayout(val label: String, val description: String, val cardCorne
     ),
     CARD(
         "کارتی",
-        "کارت‌های نرم و گرد — آرام و شفاف",
-        24.dp
+        "کاشی‌های بزرگ و گرد",
+        22.dp
     )
 }
 
 /**
- * Color identity — completely independent of [TivanLayout]. Any palette can be
- * paired with either layout.
+ * Color identity. The app now has one visual language — "کاشی" (tiles):
+ * big full-width blocks whose fill color *is* the state. Two variants of it:
+ * a bright daytime one and a dark one for night use.
  */
 enum class TivanPalette(val label: String, val description: String) {
-    CREAM(
-        "کرمی روشن",
-        "کاغذ گرم و روشن — آرام و دوستانه"
+    KASHI(
+        "کاشی روشن",
+        "زمینه‌ی روشن، کاشی زرد برای روشن و خاکستری برای خاموش"
     ),
-    LIGHT(
-        "روشن",
-        "خاکستری و سفید خنثی — ساده و تمیز"
-    ),
-    DARK(
-        "دارک",
-        "مشکی و شامپاینی — مینیمال و شیک"
-    ),
-    LIQUID_GLASS(
-        "لیکویید گلس",
-        "شیشه‌ای مات و روشن با لهجه‌ی آبی — مدرن و شفاف"
+    KASHI_NIGHT(
+        "کاشی شب",
+        "همان کاشی‌ها روی زمینه‌ی تیره — برای شب و چشم خسته"
     )
 }

@@ -70,28 +70,18 @@ class AppPreferences(context: Context) {
     private fun readUiMode(): UiMode? =
         prefs.getString(KEY_MODE, null)?.let { runCatching { UiMode.valueOf(it) }.getOrNull() }
 
-    private fun readLayout(): TivanLayout {
-        prefs.getString(KEY_LAYOUT, null)
-            ?.let { runCatching { TivanLayout.valueOf(it) }.getOrNull() }
-            ?.let { return it }
-        // Migrate from the old single three-way theme key, if present.
-        return when (prefs.getString(KEY_LEGACY_THEME, null)) {
-            "LINEN" -> TivanLayout.CARD
-            "OBSIDIAN", "INSTRUMENT" -> TivanLayout.FLAT
-            else -> TivanLayout.CARD
-        }
-    }
+    // The tile ("کاشی") design is card-based by definition; the old flat
+    // structure is no longer offered, whatever an older install saved.
+    private fun readLayout(): TivanLayout = TivanLayout.CARD
 
     private fun readPalette(): TivanPalette {
         prefs.getString(KEY_PALETTE, null)
             ?.let { runCatching { TivanPalette.valueOf(it) }.getOrNull() }
             ?.let { return it }
-        // Migrate from the old single three-way theme key, if present.
-        return when (prefs.getString(KEY_LEGACY_THEME, null)) {
-            "LINEN" -> TivanPalette.CREAM
-            "OBSIDIAN" -> TivanPalette.DARK
-            "INSTRUMENT" -> TivanPalette.DARK
-            else -> TivanPalette.CREAM
+        // Older installs saved a dark palette name — keep them on the dark variant.
+        return when (prefs.getString(KEY_PALETTE, null) ?: prefs.getString(KEY_LEGACY_THEME, null)) {
+            "DARK", "OBSIDIAN", "INSTRUMENT" -> TivanPalette.KASHI_NIGHT
+            else -> TivanPalette.KASHI
         }
     }
 

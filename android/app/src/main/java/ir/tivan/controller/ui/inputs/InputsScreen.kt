@@ -241,13 +241,16 @@ private fun InputCard(
             }
 
         TivanLayout.CARD ->
-            GlassCard(
-                Modifier.fillMaxWidth(),
-                tint = if (alert) c.alarm.copy(alpha = 0.14f) else c.glass,
-                borderTint = if (alert) c.alarm.copy(alpha = 0.4f) else c.stroke
-            ) {
-                Column(Modifier.padding(14.dp), content = content)
-            }
+            // Same full-width tile language as outputs: the tile color is the
+            // state — red while freshly triggered, plain grey otherwise.
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(CurrentLayout.cardCorner))
+                    .background(if (alert) c.alarm.copy(alpha = 0.22f) else c.tileOff)
+                    .padding(18.dp),
+                content = content
+            )
     }
 }
 
@@ -261,21 +264,18 @@ fun SegmentButton(
     val c = Tivan
     Box(
         modifier
-            .clip(RoundedCornerShape(10.dp))
-            .background(if (selected) c.primary.copy(alpha = 0.22f) else c.glassStrong)
-            .border(
-                1.dp,
-                if (selected) c.primary.copy(alpha = 0.5f) else c.stroke,
-                RoundedCornerShape(10.dp)
-            )
+            .heightIn(min = 46.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(if (selected) c.ink else c.glassStrong)
+            .border(1.5.dp, if (selected) c.ink else c.strokeStrong, RoundedCornerShape(14.dp))
             .clickable(onClick = onClick)
-            .padding(vertical = 7.dp),
+            .padding(horizontal = 8.dp, vertical = 10.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text,
-            style = MaterialTheme.typography.labelSmall,
-            color = if (selected) c.text else c.dim2
+            style = MaterialTheme.typography.labelLarge,
+            color = if (selected) c.onInk else c.text
         )
     }
 }

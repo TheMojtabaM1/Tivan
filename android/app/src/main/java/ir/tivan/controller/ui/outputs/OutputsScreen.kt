@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import ir.tivan.controller.data.Device
 import ir.tivan.controller.ui.MainViewModel
 import ir.tivan.controller.ui.OutputUi
@@ -61,7 +62,7 @@ fun OutputsScreen(viewModel: MainViewModel, header: @Composable () -> Unit) {
         )
         Spacer(Modifier.height(14.dp))
 
-        SectionHeader("خروجی‌ها", "لمس برای روشن یا خاموش")
+        SectionHeader("خروجی‌ها", "زرد یعنی روشن، خاکستری یعنی خاموش")
 
         when (layout) {
             TivanLayout.CARD ->
@@ -227,33 +228,59 @@ private fun SecurityTeaser(armed: Boolean?, pending: Boolean?, onSet: (Boolean) 
             }
 
         TivanLayout.CARD ->
-            GlassCard(Modifier.fillMaxWidth(), tint = bg) {
-                Column(Modifier.padding(15.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            Modifier
-                                .size(52.dp)
-                                .clip(CircleShape)
-                                .background(accent.copy(alpha = 0.14f)),
-                            contentAlignment = Alignment.Center
-                        ) { Text(if (isArmed) "🔒" else "🔓", style = MaterialTheme.typography.titleMedium) }
-                        Spacer(Modifier.width(14.dp))
-                        Column {
-                            Text(
-                                if (isArmed) "دزدگیر فعال" else "دزدگیر غیرفعال",
-                                style = MaterialTheme.typography.titleSmall,
-                                color = c.text
-                            )
-                            Text(statusText, style = MaterialTheme.typography.labelSmall, color = c.dim2)
-                        }
+            // The one "ink" tile on the screen — dark, high-contrast, so the
+            // alarm reads as a different kind of thing from the outputs above.
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(CurrentLayout.cardCorner))
+                    .background(if (isArmed) c.alarm else c.ink)
+                    .padding(18.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(if (isArmed) "🔒" else "🔓", fontSize = 34.sp)
+                    Spacer(Modifier.width(14.dp))
+                    Column {
+                        Text("دزدگیر", style = MaterialTheme.typography.labelLarge, color = c.onInk.copy(alpha = 0.75f))
+                        Text(statusText, style = MaterialTheme.typography.headlineSmall, color = c.onInk)
                     }
-                    Spacer(Modifier.height(14.dp))
-                    buttons()
+                }
+                Spacer(Modifier.height(14.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    InkButton("فعال کن", selected = isArmed, modifier = Modifier.weight(1f)) { onSet(true) }
+                    InkButton("غیرفعال کن", selected = armed == false, modifier = Modifier.weight(1f)) { onSet(false) }
                 }
             }
     }
 }
 
+/** A button that sits on the dark ink tile: outlined when idle, filled when it's the current state. */
+@Composable
+private fun InkButton(text: String, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    val c = Tivan
+    Surface(
+        onClick = onClick,
+        modifier = modifier.height(52.dp),
+        shape = RoundedCornerShape(16.dp),
+        color = if (selected) c.onInk else androidx.compose.ui.graphics.Color.Transparent,
+        border = androidx.compose.foundation.BorderStroke(2.dp, c.onInk.copy(alpha = if (selected) 1f else 0.5f))
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Text(
+                text,
+                style = MaterialTheme.typography.titleSmall,
+                color = if (selected) c.ink else c.onInk
+            )
+        }
+    }
+}
+
+/**
+ * One output as a full-width "کاشی": the whole tile's color is the state —
+ * yellow when on, grey when off, amber while waiting for the device to
+ * confirm. Big icon and name, then on/off as two large buttons, then the
+ * timer / schedule / rename tools as a row of buttons underneath.
+ */
 @Composable
 private fun OutputTile(
     state: OutputUi,
@@ -264,85 +291,97 @@ private fun OutputTile(
     onSchedule: (() -> Unit)? = null
 ) {
     val c = Tivan
-    val accent = when {
-        state.pending -> c.pending
-        state.on == true -> c.on
-        else -> c.dim2
-    }
-    val tint by animateColorAsState(
+    val isOn = state.on == true
+    val fill by animateColorAsState(
         when {
-            state.pending -> c.pending.copy(alpha = 0.15f)
-            state.on == true -> c.on.copy(alpha = 0.17f)
-            state.on == false -> c.alarm.copy(alpha = 0.08f)
-            else -> c.glass
+            state.pending -> c.pending
+            isOn -> c.tileOn
+            else -> c.tileOff
         },
-        tween(280), label = "tileTint"
+        tween(280), label = "tileFill"
     )
-    val border by animateColorAsState(
-        if (state.pending || state.on == true) accent.copy(alpha = 0.42f) else c.stroke,
-        tween(280), label = "tileBorder"
-    )
+    val ink = if (state.pending || isOn) c.tileOnInk else c.text
+    val statusLine = when {
+        state.pending -> "منتظر تأیید دستگاه…"
+        isOn -> "روشن · " + RelativeTime.ago(state.updatedAt)
+        state.on == false -> "خاموش · " + RelativeTime.ago(state.updatedAt)
+        else -> "وضعیت نامشخص — گزارش بگیرید"
+    }
 
-    GlassCard(modifier = modifier, tint = tint, borderTint = border) {
-        Column(Modifier.padding(14.dp).fillMaxHeight()) {
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(state.icon, style = MaterialTheme.typography.titleMedium)
-                    Spacer(Modifier.width(8.dp))
-                    Column {
-                        Text(
-                            state.name,
-                            style = MaterialTheme.typography.titleSmall,
-                            color = c.text,
-                            maxLines = 2
-                        )
-                        Text(
-                            if (state.on != null && !state.pending) RelativeTime.ago(state.updatedAt) else "خروجی",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = c.dim2
-                        )
-                    }
-                }
-                StatusPill(
-                    when {
-                        state.pending -> "در انتظار"
-                        state.on == true -> "روشن"
-                        state.on == false -> "خاموش"
-                        else -> "نامشخص"
-                    },
-                    accent
-                )
+    Column(
+        modifier
+            .clip(RoundedCornerShape(CurrentLayout.cardCorner))
+            .background(fill)
+            .padding(18.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(state.icon, fontSize = 40.sp)
+            Spacer(Modifier.width(14.dp))
+            Column(Modifier.weight(1f)) {
+                Text(state.name, style = MaterialTheme.typography.headlineSmall, color = ink, maxLines = 2)
+                Text(statusLine, style = MaterialTheme.typography.labelLarge, color = ink.copy(alpha = 0.7f))
             }
-            Spacer(Modifier.weight(1f))
-            Spacer(Modifier.height(12.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                PowerButton(
-                    "روشن کن",
-                    pressed = state.on == true,
-                    emphasis = c.on,
-                    modifier = Modifier.weight(1f),
-                    onClick = { onSet(true) }
-                )
-                PowerButton(
-                    "خاموش کن",
-                    pressed = state.on == false,
-                    emphasis = c.alarm,
-                    modifier = Modifier.weight(1f),
-                    onClick = { onSet(false) }
-                )
+        }
+        Spacer(Modifier.height(16.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            TileButton("روشن کن", selected = isOn, ink = ink, fill = fill, modifier = Modifier.weight(1f)) { onSet(true) }
+            TileButton("خاموش کن", selected = state.on == false, ink = ink, fill = fill, modifier = Modifier.weight(1f)) { onSet(false) }
+        }
+        if (onTimer != null || onRename != null || onSchedule != null) {
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (onTimer != null) TileToolButton("⏱ تایمر", ink, Modifier.weight(1f), onTimer)
+                if (onSchedule != null) TileToolButton("📅 زمان‌بندی", ink, Modifier.weight(1f), onSchedule)
+                if (onRename != null) TileToolButton("✎ نام", ink, Modifier.weight(1f), onRename)
             }
-            if (onTimer != null || onRename != null || onSchedule != null) {
-                Spacer(Modifier.height(6.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    if (onTimer != null) TinyButton("⏱", Modifier.weight(1f), onClick = onTimer)
-                    if (onSchedule != null) TinyButton("📅", Modifier.weight(1f), onClick = onSchedule)
-                    if (onRename != null) TinyButton("✎ نام", Modifier.weight(1f), onClick = onRename)
-                }
-            }
+        }
+    }
+}
+
+/** On/off action on a tile: solid ink when it's the current state, outlined otherwise. */
+@Composable
+private fun TileButton(
+    text: String,
+    selected: Boolean,
+    ink: androidx.compose.ui.graphics.Color,
+    fill: androidx.compose.ui.graphics.Color,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier.height(54.dp),
+        shape = RoundedCornerShape(16.dp),
+        color = if (selected) ink else androidx.compose.ui.graphics.Color.Transparent,
+        border = androidx.compose.foundation.BorderStroke(2.dp, ink.copy(alpha = if (selected) 1f else 0.45f)),
+        shadowElevation = if (selected) 0.dp else 2.dp
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Text(
+                text,
+                style = MaterialTheme.typography.titleSmall,
+                color = if (selected) fill else ink
+            )
+        }
+    }
+}
+
+/** Secondary tool (timer, schedule, rename) — quieter than the on/off buttons. */
+@Composable
+private fun TileToolButton(
+    text: String,
+    ink: androidx.compose.ui.graphics.Color,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier.height(44.dp),
+        shape = RoundedCornerShape(14.dp),
+        color = ink.copy(alpha = 0.08f)
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Text(text, style = MaterialTheme.typography.labelLarge, color = ink)
         }
     }
 }
@@ -477,13 +516,13 @@ private fun TinyButton(
     val c = Tivan
     Surface(
         onClick = onClick,
-        modifier = modifier,
-        shape = RoundedCornerShape(10.dp),
+        modifier = modifier.heightIn(min = 48.dp),
+        shape = RoundedCornerShape(16.dp),
         color = c.glassStrong,
-        border = androidx.compose.foundation.BorderStroke(1.dp, c.stroke)
+        border = androidx.compose.foundation.BorderStroke(1.5.dp, emphasis ?: c.strokeStrong)
     ) {
-        Box(Modifier.padding(vertical = 10.dp), contentAlignment = Alignment.Center) {
-            Text(text, style = MaterialTheme.typography.labelSmall, color = emphasis ?: c.dim)
+        Box(Modifier.padding(horizontal = 12.dp, vertical = 12.dp), contentAlignment = Alignment.Center) {
+            Text(text, style = MaterialTheme.typography.labelLarge, color = emphasis ?: c.text)
         }
     }
 }

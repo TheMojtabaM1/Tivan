@@ -31,89 +31,71 @@ data class TivanColors(
     val on: Color,
     val pending: Color,
     val alarm: Color,
-    val primary: Color
+    val primary: Color,
+    /** Fill of a tile whose output is on — the Kashi signature yellow. */
+    val tileOn: Color,
+    /** Text/icons on [tileOn]. */
+    val tileOnInk: Color,
+    /** Fill of a tile whose output is off. */
+    val tileOff: Color,
+    /** Fill of the high-contrast "ink" tile (security, primary actions). */
+    val ink: Color,
+    /** Text on [ink]. */
+    val onInk: Color
 )
 
-// ── Cream: warm paper, calm ──────────────────────────────────────────────────
-private val CreamTokens = TivanColors(
+// ── Kashi: bright ground, yellow = on, grey = off ──────────────────────────
+private val KashiTokens = TivanColors(
     dark = false,
-    bg = Color(0xFFF4F1EC),
-    bg2 = Color(0xFFE8E3D9),
-    glass = Color(0xB2FFFFFF),
-    glassStrong = Color(0xE6FFFFFF),
-    stroke = Color(0x14181713),
-    strokeStrong = Color(0x22181713),
-    text = Color(0xFF181713),
-    dim = Color(0xFF8A857A),
-    dim2 = Color(0xFFA9A296),
-    on = Color(0xFF00A98A),
-    pending = Color(0xFFC98A00),
-    alarm = Color(0xFFE03357),
-    primary = Color(0xFF12362E)
+    bg = Color(0xFFF6F7F2),
+    bg2 = Color(0xFFECEEE5),
+    glass = Color(0xFFFFFFFF),
+    glassStrong = Color(0xFFFFFFFF),
+    stroke = Color(0x1A1B1F16),
+    strokeStrong = Color(0x331B1F16),
+    text = Color(0xFF1B1F16),
+    dim = Color(0xFF5E6354),
+    dim2 = Color(0xFF878C7B),
+    on = Color(0xFF2E8B57),
+    pending = Color(0xFFD9822B),
+    alarm = Color(0xFFE5483A),
+    primary = Color(0xFF1B1F16),
+    tileOn = Color(0xFFFFD23F),
+    tileOnInk = Color(0xFF1B1F16),
+    tileOff = Color(0xFFE4E6DC),
+    ink = Color(0xFF1B1F16),
+    onInk = Color(0xFFF6F7F2)
 )
 
-// ── Light: plain neutral, clean ─────────────────────────────────────────────
-private val LightTokens = TivanColors(
-    dark = false,
-    bg = Color(0xFFFAFAFA),
-    bg2 = Color(0xFFF0F0F0),
-    glass = Color(0xB2FFFFFF),
-    glassStrong = Color(0xE6FFFFFF),
-    stroke = Color(0x14000000),
-    strokeStrong = Color(0x22000000),
-    text = Color(0xFF1A1A1A),
-    dim = Color(0xFF6B6B6B),
-    dim2 = Color(0xFF9A9A9A),
-    on = Color(0xFF0E8A6E),
-    pending = Color(0xFFC98A00),
-    alarm = Color(0xFFD93655),
-    primary = Color(0xFF1F6FEB)
-)
-
-// ── Dark: near-black + champagne, minimal ───────────────────────────────────
-private val DarkTokens = TivanColors(
+// ── Kashi Night: same tiles on a dark ground ────────────────────────────────
+private val KashiNightTokens = TivanColors(
     dark = true,
-    bg = Color(0xFF08080A),
-    bg2 = Color(0xFF0C0F1A),
-    glass = Color(0x0EFFFFFF),
-    glassStrong = Color(0x17FFFFFF),
+    bg = Color(0xFF15171A),
+    bg2 = Color(0xFF1C1F23),
+    glass = Color(0xFF22262B),
+    glassStrong = Color(0xFF2A2F35),
     stroke = Color(0x1FFFFFFF),
-    strokeStrong = Color(0x2EFFFFFF),
-    text = Color(0xFFEDEDF0),
-    dim = Color(0xFF9AA3BD),
-    dim2 = Color(0xFF6F7893),
-    on = Color(0xFF4ECBA5),
-    pending = Color(0xFFE8A33D),
-    alarm = Color(0xFFFF5470),
-    primary = Color(0xFFC9A96A)
-)
-
-// ── Liquid Glass: frosted, translucent, iOS-26-style ────────────────────────
-private val LiquidGlassTokens = TivanColors(
-    dark = false,
-    bg = Color(0xFFE7EEF5),
-    bg2 = Color(0xFFD8E3EE),
-    glass = Color(0x59FFFFFF),
-    glassStrong = Color(0x99FFFFFF),
-    stroke = Color(0x80FFFFFF),
-    strokeStrong = Color(0xB3FFFFFF),
-    text = Color(0xFF14202B),
-    dim = Color(0xFF51606E),
-    dim2 = Color(0xFF7C8A97),
-    on = Color(0xFF12B886),
-    pending = Color(0xFFFF9F1C),
-    alarm = Color(0xFFFF375F),
-    primary = Color(0xFF0A84FF)
+    strokeStrong = Color(0x33FFFFFF),
+    text = Color(0xFFEEF0EA),
+    dim = Color(0xFFA7AC9E),
+    dim2 = Color(0xFF7E8377),
+    on = Color(0xFF5BC98A),
+    pending = Color(0xFFF0A04B),
+    alarm = Color(0xFFFF6B5C),
+    primary = Color(0xFFFFD23F),
+    tileOn = Color(0xFFFFD23F),
+    tileOnInk = Color(0xFF1B1F16),
+    tileOff = Color(0xFF2C3036),
+    ink = Color(0xFFEEF0EA),
+    onInk = Color(0xFF15171A)
 )
 
 fun tokensFor(palette: TivanPalette): TivanColors = when (palette) {
-    TivanPalette.CREAM -> CreamTokens
-    TivanPalette.LIGHT -> LightTokens
-    TivanPalette.DARK -> DarkTokens
-    TivanPalette.LIQUID_GLASS -> LiquidGlassTokens
+    TivanPalette.KASHI -> KashiTokens
+    TivanPalette.KASHI_NIGHT -> KashiNightTokens
 }
 
-val LocalTivanColors = staticCompositionLocalOf { CreamTokens }
+val LocalTivanColors = staticCompositionLocalOf { KashiTokens }
 
 /** Which layout is active — screens read this to switch their whole structural shape. */
 val LocalTivanLayout = staticCompositionLocalOf { TivanLayout.CARD }
@@ -159,7 +141,7 @@ private fun materialScheme(c: TivanColors) = if (c.dark) {
 @Composable
 fun TivanTheme(
     layout: TivanLayout = TivanLayout.CARD,
-    palette: TivanPalette = TivanPalette.CREAM,
+    palette: TivanPalette = TivanPalette.KASHI,
     content: @Composable () -> Unit
 ) {
     val tokens = tokensFor(palette)
