@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -424,26 +425,40 @@ fun EmojiPicker(
         columns = GridCells.Fixed(perRow),
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(max = 220.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+            .heightIn(max = 260.dp),
+        horizontalArrangement = Arrangement.spacedBy(9.dp),
+        verticalArrangement = Arrangement.spacedBy(9.dp)
     ) {
         gridItems(options) { e ->
             val isSel = e == selected
             Box(
                 Modifier
-                    .size(46.dp)
-                    .clip(RoundedCornerShape(15.dp))
-                    .background(if (isSel) c.primary.copy(alpha = 0.24f) else c.glassStrong)
+                    .size(50.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(if (isSel) c.primary.copy(alpha = 0.26f) else c.glassStrong)
                     .border(
-                        1.dp,
-                        if (isSel) c.primary.copy(alpha = 0.55f) else c.stroke,
-                        RoundedCornerShape(15.dp)
+                        if (isSel) 2.dp else 1.dp,
+                        if (isSel) c.primary else c.stroke,
+                        RoundedCornerShape(16.dp)
                     )
                     .clickable { onSelect(e) },
                 contentAlignment = Alignment.Center
             ) {
-                Text(e, style = MaterialTheme.typography.titleMedium)
+                Text(e, style = MaterialTheme.typography.titleLarge)
+                if (isSel) {
+                    Box(
+                        Modifier
+                            .align(Alignment.BottomEnd)
+                            .offset(x = 4.dp, y = 4.dp)
+                            .size(16.dp)
+                            .clip(CircleShape)
+                            .background(c.primary)
+                            .border(1.5.dp, c.bg, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("✓", style = MaterialTheme.typography.labelSmall, color = Color.White)
+                    }
+                }
             }
         }
     }

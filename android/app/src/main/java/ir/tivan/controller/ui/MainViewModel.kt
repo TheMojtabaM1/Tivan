@@ -202,15 +202,25 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         // Settle any pending output whose confirmation just arrived.
         val stillPending = _pendingOutputs.value.toMutableMap()
         var settled = false
+        val spokenOutputs = mutableSetOf<Int>()
         for ((index, target) in _pendingOutputs.value) {
             if (StatusParser.confirmsOutput(device, body, index, target)) {
                 stillPending.remove(index)
                 cancelTimeout("out$index")
                 settled = true
                 speak("${device.outputName(index)} ${if (target) "روشن شد" else "خاموش شد"}")
+                spokenOutputs += index
             }
         }
         if (settled) _pendingOutputs.value = stillPending
+
+        // Any other output change the device reported on its own — a schedule, a
+        // physical button, another phone — not just ones this app is waiting on.
+        for (change in result.outputChanges) {
+            if (change.index in spokenOutputs) continue
+            if (previous.output(change.index) == change.on) continue
+            speak("${device.outputName(change.index)} ${if (change.on) "روشن شد" else "خاموش شد"}")
+        }
 
         _pendingSecurity.value?.let { target ->
             if (StatusParser.confirmsSecurity(body, target)) {
@@ -230,6 +240,28 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         if (result.recognized && !settled) {
             emitToast("گزارش جدید از دستگاه دریافت شد")
         }
+
+        // A full REPORT dump reads out every channel at once, by the user's
+        // own display name for each — the app's one chance to say what the
+        // whole device looks like, not just what just changed.
+        if (result.fullReport) {
+            speak(buildStatusAnnouncement(device, result.status))
+        }
+    }
+
+    private fun buildStatusAnnouncement(device: Device, status: DeviceStatus): String {
+        val parts = mutableListOf<String>()
+        for (i in 0 until device.channelCount) {
+            status.output(i)?.let { on ->
+                parts += "${device.outputName(i)} ${if (on) "روشن" else "خاموش"}"
+            }
+        }
+        for (i in 0 until device.channelCount) {
+            status.input(i)?.let { closed ->
+                parts += "${device.inputMessage(i)} ${if (closed) "بسته" else "باز"}"
+            }
+        }
+        return parts.joinToString("، ")
     }
 
     fun clearAlarm() {

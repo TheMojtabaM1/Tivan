@@ -25,7 +25,9 @@ object StatusParser {
         val status: DeviceStatus,
         val outputChanges: List<OutputChange> = emptyList(),
         val triggeredInputs: List<Int> = emptyList(),
-        val recognized: Boolean = false
+        val recognized: Boolean = false,
+        /** True when this reply was a full REPORT dump (every channel's state at once), not a single event. */
+        val fullReport: Boolean = false
     )
 
     data class OutputChange(val index: Int, val on: Boolean)
@@ -43,6 +45,7 @@ object StatusParser {
         val outputChanges = mutableListOf<OutputChange>()
         val triggered = mutableListOf<Int>()
         var recognized = false
+        var fullReport = false
 
         // ---- outputs: "<name> ON" / "<name> OFF" -------------------------------
         // Candidate names: whatever the user configured, plus the factory defaults.
@@ -103,6 +106,7 @@ object StatusParser {
             ins.forEachIndexed { i, v -> if (v != null) status = status.withInput(i, v, now) }
             status = status.copy(lastReport = text, lastReportAt = now)
             recognized = true
+            fullReport = true
         }
 
         // ---- antenna -----------------------------------------------------------
@@ -123,7 +127,7 @@ object StatusParser {
             recognized = true
         }
 
-        return Result(status, outputChanges, triggered, recognized)
+        return Result(status, outputChanges, triggered, recognized, fullReport)
     }
 
     /**
